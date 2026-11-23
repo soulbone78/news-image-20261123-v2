@@ -1,783 +1,826 @@
-"""The World in One Day: Monday 23 November 2026.
+#!/usr/bin/env python3
+"""The World in One Day -- Monday 23 November 2026.
 
-This file is a small press of its own. It sets one newspaper
-front page -- six stories from a single Monday -- and prints
-it as a square 1024 pixel PNG, using nothing but the Python
-standard library. Nothing is read from the network, the clock
-is never consulted, and there is no randomness anywhere, so
-two runs produce the same file down to the last byte.
+A one-page newspaper front page drawn entirely in code for the
+make.fun news-image-20261123 competition. Thirty stories from one
+day of war, climate failure and record sport: a large lead, five
+medium stories, twenty-one small stories and a ticker of briefs.
 
-The page, from the top:
+Writes a 1024x1024 PNG to $MAKEFUN_OUTPUT_DIR/entry.png (or
+/output/entry.png when the variable is unset). Python standard
+library only. Everything is painted on a canvas three times the
+final size and shrunk by 3x3 averaging, so the lettering has
+smooth, anti-aliased edges.
 
-  * a masthead naming the paper and the day;
-  * the lead: Iranian missiles hit a civilian plant in Sitra,
-    Bahrain, two tankers are hit near the Strait of Hormuz,
-    Saudi jets down a Houthi missile, and Washington denies
-    an Iranian claim about a US jet;
-  * COP31 in Antalya collapses with no deal on fossil fuels;
-  * a Russian drone smashes a five-storey block of flats in
-    the Kyiv region, with 14 people feared trapped;
-  * NATO meets in Brussels after missiles and a drone cross
-    into Poland;
-  * Nepal's prime minister Balendra Shah meets Narendra Modi
-    in New Delhi on a state visit;
-  * India declare on 720 for 9 in the Wellington Test, a
-    record total;
-  * a footer ticker: a factory fire in Indonesia, a minister
-    quitting in Seoul over an AI exam row, and a march in
-    Lisbon about the cost of life.
-
-Everything is drawn on a sheet twice the finished size and
-then shrunk by averaging each 2 by 2 block, which softens the
-edges. The lettering is a hand-made 5 by 7 dot face, stored
-below as rows of ones and zeroes. The PNG bytes are assembled
-by hand from zlib and struct.
-
-A quirk of the little face: its lowercase "g" reads like a
-"9" at body size, so the body copy is written without any
-lowercase "g" at all. Headlines are all capitals, where the
-capital G is unmistakable.
+The masthead, date line, headlines and section labels are set in
+Lemon Milk (donationware, Marsnev), a real geometric sans the user
+supplied; the body copy is set in Creato Display (SIL Open Font
+License, Anugrah Pasau), a real humanist sans he supplied next.
+Both fonts' glyph outlines were extracted with fontTools and
+baked into lemonmilk_data.py and creato_data.py as polylines,
+which this program fills with its own polygon renderer. Lemon
+Milk is caps-only, so the body copy uses Creato, which has full
+lowercase.
 """
 
+import math
 import os
 import struct
+import sys
 import zlib
-from math import cos, pi, radians, sin, sqrt
+from math import isqrt
 
-SIDE = 1024              # finished page: a square of this many pixels
-ZOOM = 2                 # the working sheet is this many times bigger
-EDGE = 10                # plain border around the page
-SPAN = SIDE - 2 * EDGE   # width of the printed area
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import creato_data
+import lemonmilk_data
 
-# The inks used across the page, as plain RGB triples.
-NEWSPRINT = (247, 242, 231)
-CARD_BG = (255, 252, 245)
+W = 1024
+H = 1024
+SUPER = 3            # render scale; the final image is W x H
+CW = W * SUPER       # canvas width in device pixels
+CH = H * SUPER       # canvas height in device pixels
+
+# ---- palette ---------------------------------------------------
+PAPER = (247, 243, 232)
 INK = (26, 26, 26)
-SOFT_INK = (52, 52, 48)
-FADED = (110, 104, 92)
-CRIMSON = (178, 44, 38)
-NAVY = (28, 78, 138)
-PALE_SKY = (168, 205, 232)
-DEEP_SEA = (24, 68, 110)
-EMBER = (224, 112, 32)
-BRASS = (214, 158, 46)
-MOSS = (74, 148, 74)
-BEACH = (222, 200, 150)
-PEBBLE = (148, 142, 130)
-ASH = (120, 116, 108)
-SNOW = (255, 255, 255)
+RED = (198, 32, 32)
+GREY = (112, 107, 94)
+WHITE = (255, 255, 255)
+SKY = (169, 209, 233)
+SKY2 = (216, 233, 241)
+SEA = (15, 72, 128)
+SAND = (216, 196, 150)
+HULL = (30, 30, 34)
+DECK = (198, 200, 202)
+SUN = (242, 196, 66)
+SMOKE = (130, 130, 130)
+SMOKE2 = (104, 104, 104)
+FIRE1 = (220, 60, 20)
+FIRE2 = (245, 140, 30)
+FIRE3 = (255, 220, 60)
+WAVE = (140, 190, 225)
+HALL = (152, 144, 130)
+ROOF = (96, 90, 80)
+GLOBE = (52, 110, 190)
+LAND = (96, 180, 96)
+TAN = (206, 178, 138)
+WINDOW = (70, 120, 170)
+RUBBLE = (70, 66, 60)
+NAVY = (22, 66, 148)
+RUNWAY = (60, 60, 62)
+GREEN = (110, 180, 90)
+GREEN2 = (88, 150, 70)
+PITCH = (214, 190, 140)
+ARCH = (196, 160, 110)
+MOUNT = (150, 150, 150)
+MOUNT2 = (172, 172, 172)
+SAFFRON = (255, 153, 51)
+IGREEN = (19, 136, 8)
+BOARD = (10, 10, 10)
+YELLOW = (255, 210, 40)
 
-# -------------------------------------------------------------------- face
-# The 5 by 7 dot face. Each character is seven strings, one per
-# row, five cells each: "1" means ink, "0" means paper. The
-# leftmost cell of a string is the leftmost column of the
-# letter.
-
-GLYPHS = {
-    "A": ("01110", "10001", "10001", "11111", "10001", "10001", "10001"),
-    "B": ("11110", "10001", "10001", "11110", "10001", "10001", "11110"),
-    "C": ("01110", "10001", "10000", "10000", "10000", "10001", "01110"),
-    "D": ("11110", "10001", "10001", "10001", "10001", "10001", "11110"),
-    "E": ("11111", "10000", "10000", "11110", "10000", "10000", "11111"),
-    "F": ("11111", "10000", "10000", "11110", "10000", "10000", "10000"),
-    "G": ("01110", "10001", "10000", "10111", "10001", "10001", "01111"),
-    "H": ("10001", "10001", "10001", "11111", "10001", "10001", "10001"),
-    "I": ("01110", "00100", "00100", "00100", "00100", "00100", "01110"),
-    "J": ("00111", "00010", "00010", "00010", "00010", "10010", "01100"),
-    "K": ("10001", "10010", "10100", "11000", "10100", "10010", "10001"),
-    "L": ("10000", "10000", "10000", "10000", "10000", "10000", "11111"),
-    "M": ("10001", "11011", "10101", "10101", "10001", "10001", "10001"),
-    "N": ("10001", "11001", "10101", "10011", "10001", "10001", "10001"),
-    "O": ("01110", "10001", "10001", "10001", "10001", "10001", "01110"),
-    "P": ("11110", "10001", "10001", "11110", "10000", "10000", "10000"),
-    "Q": ("01110", "10001", "10001", "10001", "10101", "10010", "01101"),
-    "R": ("11110", "10001", "10001", "11110", "10100", "10010", "10001"),
-    "S": ("01111", "10000", "10000", "01110", "00001", "00001", "11110"),
-    "T": ("11111", "00100", "00100", "00100", "00100", "00100", "00100"),
-    "U": ("10001", "10001", "10001", "10001", "10001", "10001", "01110"),
-    "V": ("10001", "10001", "10001", "10001", "10001", "01010", "00100"),
-    "W": ("10001", "10001", "10001", "10101", "10101", "10101", "01010"),
-    "X": ("10001", "10001", "01010", "00100", "01010", "10001", "10001"),
-    "Y": ("10001", "10001", "01010", "00100", "00100", "00100", "00100"),
-    "Z": ("11111", "00001", "00010", "00100", "01000", "10000", "11111"),
-    "0": ("01110", "10001", "10011", "10101", "11001", "10001", "01110"),
-    "1": ("00100", "01100", "00100", "00100", "00100", "00100", "01110"),
-    "2": ("01110", "10001", "00001", "00110", "01000", "10000", "11111"),
-    "3": ("11111", "00010", "00100", "00010", "00001", "10001", "01110"),
-    "4": ("00010", "00110", "01010", "10010", "11111", "00010", "00010"),
-    "5": ("11111", "10000", "11110", "00001", "00001", "10001", "01110"),
-    "6": ("00110", "01000", "10000", "11110", "10001", "10001", "01110"),
-    "7": ("11111", "00001", "00010", "00100", "01000", "01000", "01000"),
-    "8": ("01110", "10001", "10001", "01110", "10001", "10001", "01110"),
-    "9": ("01110", "10001", "10001", "01111", "00001", "00010", "01100"),
-    ".": ("00000", "00000", "00000", "00000", "00000", "01100", "01100"),
-    ",": ("00000", "00000", "00000", "00000", "01100", "00100", "01000"),
-    ":": ("00000", "01100", "01100", "00000", "01100", "01100", "00000"),
-    ";": ("00000", "01100", "01100", "00000", "01100", "00100", "01000"),
-    "'": ("00100", "00100", "01000", "00000", "00000", "00000", "00000"),
-    "-": ("00000", "00000", "00000", "01110", "00000", "00000", "00000"),
-    "/": ("00001", "00010", "00010", "00100", "01000", "01000", "10000"),
-    "(": ("00010", "00100", "01000", "01000", "01000", "00100", "00010"),
-    ")": ("01000", "00100", "00010", "00010", "00010", "00100", "01000"),
-    "%": ("11001", "11010", "00010", "00100", "01000", "01011", "10011"),
-    "+": ("00000", "00100", "00100", "01110", "00100", "00100", "00000"),
-    "=": ("00000", "00000", "01110", "00000", "01110", "00000", "00000"),
-    "?": ("01110", "10001", "00001", "00110", "00100", "00000", "00100"),
-    "!": ("00100", "00100", "00100", "00100", "00100", "00000", "00100"),
-    "&": ("01100", "10010", "10100", "01000", "10101", "10010", "01101"),
-    '"': ("01010", "01010", "00000", "00000", "00000", "00000", "00000"),
-    "*": ("00000", "00100", "10101", "01110", "10101", "00100", "00000"),
-    "a": ("00000", "00000", "01110", "00001", "01111", "10001", "01111"),
-    "b": ("10000", "10000", "11110", "10001", "10001", "10001", "11110"),
-    "c": ("00000", "00000", "01110", "10000", "10000", "10001", "01110"),
-    "d": ("00001", "00001", "01111", "10001", "10001", "10001", "01111"),
-    "e": ("00000", "00000", "01110", "10001", "11111", "10000", "01110"),
-    "f": ("00110", "01001", "01000", "11110", "01000", "01000", "01000"),
-    "g": ("00000", "01111", "10001", "10001", "01111", "00001", "01110"),
-    "h": ("10000", "10000", "11110", "10001", "10001", "10001", "10001"),
-    "i": ("00100", "00000", "01100", "00100", "00100", "00100", "01110"),
-    "j": ("00010", "00000", "00110", "00010", "00010", "10010", "01100"),
-    "k": ("10000", "10000", "10101", "11001", "10100", "10010", "10001"),
-    "l": ("01100", "00100", "00100", "00100", "00100", "00100", "01110"),
-    "m": ("00000", "00000", "11010", "10101", "10101", "10101", "10101"),
-    "n": ("00000", "00000", "11110", "10001", "10001", "10001", "10001"),
-    "o": ("00000", "00000", "01110", "10001", "10001", "10001", "01110"),
-    "p": ("00000", "00000", "11110", "10001", "11110", "10000", "10000"),
-    "q": ("00000", "00000", "01111", "10001", "01111", "00001", "00001"),
-    "r": ("00000", "00000", "10110", "11001", "10000", "10000", "10000"),
-    "s": ("00000", "00000", "01111", "10000", "01110", "00001", "11110"),
-    "t": ("01000", "01000", "11100", "01000", "01000", "01001", "00110"),
-    "u": ("00000", "00000", "10001", "10001", "10001", "10011", "01101"),
-    "v": ("00000", "00000", "10001", "10001", "10001", "01010", "00100"),
-    "w": ("00000", "00000", "10001", "10101", "10101", "10101", "01010"),
-    "x": ("00000", "00000", "10001", "01010", "00100", "01010", "10001"),
-    "y": ("00000", "00000", "10001", "10001", "01111", "00001", "01110"),
-    "z": ("00000", "00000", "11111", "00010", "00100", "01000", "11111"),
-    " ": ("00000", "00000", "00000", "00000", "00000", "00000", "00000"),
-}
-DOT = ("00000", "00000", "01100", "01100", "00000", "00000", "00000")
+# ---- canvas ----------------------------------------------------
+# All drawing calls take final-pixel coordinates; the sheet scales
+# them by SUPER internally. Text sizes are given in "dots": one dot
+# is one device pixel per font cell, so dot=2 draws each font cell
+# as a single final pixel.
 
 
-def measure(text, scale, heavy=False):
-    """Width of a line of type in finished pixels."""
-    total = len(text) * 6 * scale - scale
-    if heavy:
-        total += max(0, len(text) - 1)
-    return total
-
-
-def split_lines(text, scale, limit, heavy=False):
-    """Greedy word wrap; every returned line fits inside limit."""
-    out = []
-    for part in text.split("\n"):
-        words = part.split(" ")
-        line = ""
-        for word in words:
-            attempt = word if not line else line + " " + word
-            if measure(attempt, scale, heavy) <= limit or not line:
-                line = attempt
-            else:
-                out.append(line)
-                line = word
-        if line:
-            out.append(line)
-    return out
-
-
-# ------------------------------------------------------------------- sheet
 class Sheet:
-    """A working surface ZOOM times the finished size. Every
-    drawing method here takes finished-page coordinates and
-    scales them up before touching the buffer."""
+    def __init__(self):
+        self.buf = bytearray(CW * CH * 3)
+        self.fill(PAPER)
 
-    def __init__(self, side, fill):
-        self.side = side * ZOOM
-        self.pixels = bytearray(self.side * self.side * 3)
-        band = bytes(fill) * self.side
-        row_len = self.side * 3
-        for row in range(self.side):
-            at = row * row_len
-            self.pixels[at:at + row_len] = band
+    def fill(self, color):
+        self.buf[:] = bytes(color) * (CW * CH)
 
-    def run(self, row, start, stop, colour):
-        """Paint one horizontal stretch of one working row."""
-        at = (row * self.side + start) * 3
-        self.pixels[at:at + (stop - start) * 3] = (
-            bytes(colour) * (stop - start))
-
-    def box(self, x, y, wide, tall, colour):
-        """A solid rectangle, x, y, wide, tall in finished pixels."""
-        left = max(0, x * ZOOM)
-        top = max(0, y * ZOOM)
-        right = min(self.side, (x + wide) * ZOOM)
-        bottom = min(self.side, (y + tall) * ZOOM)
-        if right <= left or bottom <= top:
+    def _span(self, yy, x0, x1, color):
+        """One horizontal run of device pixels on row yy."""
+        if x1 <= x0 or yy < 0 or yy >= CH:
             return
-        band = bytes(colour) * (right - left)
-        width = (right - left) * 3
-        for row in range(top, bottom):
-            at = (row * self.side + left) * 3
-            self.pixels[at:at + width] = band
+        x0 = max(0, x0)
+        x1 = min(CW, x1)
+        if x1 <= x0:
+            return
+        i = yy * CW * 3 + x0 * 3
+        self.buf[i:i + (x1 - x0) * 3] = bytes(color) * (x1 - x0)
 
-    def disc(self, cx, cy, radius, colour):
-        """A solid disc, centre and radius in finished pixels."""
-        cx *= ZOOM
-        cy *= ZOOM
-        radius *= ZOOM
-        square = radius * radius
-        for row in range(max(0, cy - radius),
-                         min(self.side, cy + radius + 1)):
-            dy = row - cy
-            half = int(sqrt(max(0, square - dy * dy)))
-            self.run(row, max(0, cx - half),
-                     min(self.side, cx + half + 1), colour)
+    def rect(self, x, y, w, h, color):
+        x0 = x * SUPER
+        y0 = y * SUPER
+        x1 = (x + w) * SUPER
+        y1 = (y + h) * SUPER
+        for yy in range(y0, y1):
+            self._span(yy, x0, x1, color)
 
-    def oval(self, cx, cy, rx, ry, colour):
-        """A solid ellipse, centre and radii in finished pixels."""
-        cx *= ZOOM
-        cy *= ZOOM
-        rx *= ZOOM
-        ry *= ZOOM
-        for row in range(max(0, cy - ry),
-                         min(self.side, cy + ry + 1)):
-            frac = (row - cy) / ry
-            half = int(rx * sqrt(max(0.0, 1.0 - frac * frac)))
-            self.run(row, max(0, cx - half),
-                     min(self.side, cx + half + 1), colour)
+    def frame(self, x, y, w, h, color, t=2):
+        self.rect(x, y, w, t, color)
+        self.rect(x, y + h - t, w, t, color)
+        self.rect(x, y, t, h, color)
+        self.rect(x + w - t, y, t, h, color)
 
-    def shape(self, points, colour):
-        """A filled polygon; points are (x, y) in finished pixels."""
-        scaled = [(px * ZOOM, py * ZOOM) for px, py in points]
-        tops = [pt[1] for pt in scaled]
-        first = max(0, min(tops))
-        last = min(self.side - 1, max(tops))
-        count = len(scaled)
-        for row in range(first, last + 1):
-            cuts = []
-            for i in range(count):
-                x1, y1 = scaled[i]
-                x2, y2 = scaled[(i + 1) % count]
-                if y1 == y2:
-                    continue
-                if (y1 <= row < y2) or (y2 <= row < y1):
-                    cuts.append(
-                        int(x1 + (row - y1) * (x2 - x1) / (y2 - y1)))
-            cuts.sort()
-            for k in range(0, len(cuts) - 1, 2):
-                left = max(0, cuts[k])
-                right = min(self.side, cuts[k + 1] + 1)
-                if right > left:
-                    self.run(row, left, right, colour)
+    def cell(self, x, y, d, color):
+        """A d-by-d block of device pixels (one font cell)."""
+        for yy in range(y, y + d):
+            self._span(yy, x, x + d, color)
 
-    def stroke(self, x0, y0, x1, y1, width, colour):
-        """A thick straight line, width in finished pixels."""
-        steps = int(max(abs(x1 - x0), abs(y1 - y0)) * ZOOM) + 1
-        half = max(1, width * ZOOM // 2)
-        for step in range(steps + 1):
-            t = step / max(1, steps)
-            cx = int((x0 + (x1 - x0) * t) * ZOOM)
-            cy = int((y0 + (y1 - y0) * t) * ZOOM)
-            for row in range(max(0, cy - half),
-                             min(self.side, cy + half + 1)):
-                dy = row - cy
-                span = int(sqrt(max(0, half * half - dy * dy)))
-                self.run(row, max(0, cx - span),
-                         min(self.side, cx + span + 1), colour)
+    def disc(self, cx, cy, r, color):
+        cx2, cy2, r2 = cx * SUPER, cy * SUPER, r * SUPER
+        for yy in range(cy2 - r2, cy2 + r2 + 1):
+            dy = yy - cy2
+            dx = isqrt(max(0, r2 * r2 - dy * dy))
+            self._span(yy, cx2 - dx, cx2 + dx + 1, color)
 
-    def hoop(self, cx, cy, radius, width, colour):
-        """A circle outline, radius and width in finished pixels."""
-        steps = int(2 * pi * radius * ZOOM) + 8
-        for step in range(steps):
-            angle = 2 * pi * step / steps
-            px = int((cx + radius * cos(angle)) * ZOOM)
-            py = int((cy + radius * sin(angle)) * ZOOM)
-            self.disc(px // ZOOM, py // ZOOM,
-                      max(1, width // 2), colour)
+    def poly(self, pts, color):
+        """Filled polygon, even-odd scanline fill."""
+        pts = [(int(round(x * SUPER)), int(round(y * SUPER)))
+               for x, y in pts]
+        ymin = max(0, min(p[1] for p in pts))
+        ymax = min(CH - 1, max(p[1] for p in pts))
+        n = len(pts)
+        for yy in range(ymin, ymax + 1):
+            xs = []
+            for i in range(n):
+                x0, y0 = pts[i]
+                x1, y1 = pts[(i + 1) % n]
+                if (y0 <= yy < y1) or (y1 <= yy < y0):
+                    t = (yy - y0) / (y1 - y0)
+                    xs.append(x0 + t * (x1 - x0))
+            xs.sort()
+            for k in range(0, len(xs) - 1, 2):
+                self._span(yy, int(xs[k]), int(xs[k + 1]) + 1, color)
 
-    # ------------------------------------------------------------ lettering
-    def letter(self, x, y, scale, rows, colour):
-        """One 5 by 7 character; x, y in finished pixels and
-        scale in finished pixels per face dot."""
-        for r, row in enumerate(rows):
-            for c, cell in enumerate(row):
-                if cell == "1":
-                    self.box(x + c * scale, y + r * scale,
-                             scale, scale, colour)
+    def polys(self, contours, color):
+        """Filled glyph: several contours at once, even-odd
+        scanline fill, so counters (the holes in A, D, O, R, B)
+        stay empty. Horizontal edges never cross a scanline, so
+        they are dropped when the edge list is built."""
+        edges = []
+        ymin, ymax = CH, -1
+        for pts in contours:
+            dev = [(int(round(x * SUPER)), int(round(y * SUPER)))
+                   for x, y in pts]
+            for i, (x0, y0) in enumerate(dev):
+                x1, y1 = dev[(i + 1) % len(dev)]
+                if y0 != y1:
+                    edges.append((x0, y0, x1, y1))
+            ymin = min(ymin, min(p[1] for p in dev))
+            ymax = max(ymax, max(p[1] for p in dev))
+        ymin = max(0, ymin)
+        ymax = min(CH - 1, ymax)
+        for yy in range(ymin, ymax + 1):
+            xs = []
+            for x0, y0, x1, y1 in edges:
+                if (y0 <= yy < y1) or (y1 <= yy < y0):
+                    t = (yy - y0) / (y1 - y0)
+                    xs.append(x0 + t * (x1 - x0))
+            xs.sort()
+            for k in range(0, len(xs) - 1, 2):
+                self._span(yy, int(xs[k]), int(xs[k + 1]) + 1, color)
 
-    def write(self, x, y, scale, text, colour, heavy=False, align="left"):
-        """Paint a string; returns the width painted, in pixels."""
-        if align in ("center", "right"):
-            full = measure(text, scale)
-            if align == "center":
-                x -= full // 2
-            else:
-                x -= full
-        pen = x
-        for ch in text:
-            rows = GLYPHS.get(ch)
-            if rows is None:
-                rows = DOT if ch == "\u2022" else GLYPHS[" "]
-            self.letter(pen, y, scale, rows, colour)
-            if heavy and scale >= 2:
-                # A second pass one finished pixel to the right
-                # fattens the strokes; that is what makes it bold.
-                self.letter(pen + 1, y, scale, rows, colour)
-            pen += 6 * scale
-        return pen - x - scale
-
-    def block(self, x, y, scale, lines, colour, heavy=False,
-              gap=None, align="left"):
-        """Paint several lines, one under the next; returns the
-        y where the next line would go."""
-        if gap is None:
-            gap = 7 * scale + 4
-        for line in lines:
-            self.write(x, y, scale, line, colour, heavy=heavy,
-                       align=align)
-            y += gap
-        return y
+    def line(self, x0, y0, x1, y1, color, t=1):
+        """Bresenham line, t final pixels thick."""
+        x0, y0, x1, y1 = x0 * SUPER, y0 * SUPER, x1 * SUPER, y1 * SUPER
+        dx = abs(x1 - x0)
+        dy = -abs(y1 - y0)
+        sx = 1 if x0 < x1 else -1
+        sy = 1 if y0 < y1 else -1
+        err = dx + dy
+        half = t * SUPER // 2
+        while True:
+            for yy in range(y0 - half, y0 + half + 1):
+                self._span(yy, x0 - half, x0 + half + 1, color)
+            if x0 == x1 and y0 == y1:
+                break
+            e2 = 2 * err
+            if e2 >= dy:
+                err += dy
+                x0 += sx
+            if e2 <= dx:
+                err += dx
+                y0 += sy
 
 
-# ----------------------------------------------------------------- encoding
-def _pack(kind, data):
-    """One PNG chunk: length, type, data, CRC."""
-    body = struct.pack(">I", len(data)) + kind + data
-    return body + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+# ---- Creato Display --------------------------------------------
+# Real font outlines (baked into creato_data.py by
+# extract_creato.py). A glyph is [advance, contour, ...] with y
+# running down from the cap line, so `size` is the cap height in
+# final pixels and y is the top of the capitals; descenders run
+# below y + size. Creato has full lowercase and is proportional,
+# so body copy is wrapped by real measured advances (wrap_creato
+# / para_creato below), never by character count.
+
+CREATO = {"regular": creato_data.REGULAR, "bold": creato_data.BOLD}
+CREATO_CAP = creato_data.CAP
 
 
-def render_png(sheet):
-    """Average each 2 by 2 block down to one pixel, then pack the
-    result as a PNG with filter-0 rows and zlib level 9."""
-    raw = bytearray()
-    wide = sheet.side
-    src = sheet.pixels
-    for out_y in range(SIDE):
-        raw.append(0)
-        top = out_y * ZOOM
-        for out_x in range(SIDE):
-            left = out_x * ZOOM
-            red = green = blue = 0
-            for dy in range(ZOOM):
-                base = ((top + dy) * wide + left) * 3
-                for dx in range(ZOOM):
-                    pos = base + dx * 3
-                    red += src[pos]
-                    green += src[pos + 1]
-                    blue += src[pos + 2]
-            raw.append(red // 4)
-            raw.append(green // 4)
-            raw.append(blue // 4)
-    packed = zlib.compress(bytes(raw), 9)
-    head = struct.pack(">IIBBBBB", SIDE, SIDE, 8, 2, 0, 0, 0)
-    png = b"\x89PNG\r\n\x1a\n"
-    png += _pack(b"IHDR", head)
-    png += _pack(b"IDAT", packed)
-    png += _pack(b"IEND", b"")
-    return png
+def creato_w(s, size, weight="regular"):
+    """Width of a string in final pixels at the given cap height."""
+    face = CREATO[weight]
+    scale = size / CREATO_CAP
+    return int(round(sum(face[ch][0] for ch in s) * scale))
 
 
-# ------------------------------------------------------------------- scenes
-def starburst(sheet, cx, cy, radius, core, mid, rim):
-    """An explosion: three jagged stars layered from the
-    outside in."""
-    points = 12
-    for size, colour in ((radius, rim), (int(radius * 0.72), mid),
-                         (int(radius * 0.45), core)):
-        outline = []
-        for i in range(points * 2):
-            angle = pi * i / points
-            reach = size if i % 2 == 0 else int(size * 0.45)
-            outline.append((cx + int(reach * cos(angle)),
-                            cy + int(reach * sin(angle))))
-        sheet.shape(outline, colour)
+def draw_creato(sh, s, x, y, size, weight, color):
+    face = CREATO[weight]
+    scale = size / CREATO_CAP
+    cx = float(x)
+    for ch in s:
+        glyph = face.get(ch)
+        if glyph is None:
+            continue
+        if len(glyph) > 1:
+            contours = []
+            for contour in glyph[1:]:
+                pts = []
+                for i in range(0, len(contour), 2):
+                    pts.append((cx + contour[i] * scale,
+                                y + contour[i + 1] * scale))
+                contours.append(pts)
+            sh.polys(contours, color)
+        cx += glyph[0] * scale
 
 
-def paint_gulf(sheet, left, top, wide, tall):
-    """The Strait of Hormuz: two tankers on a dark sea, blasts
-    above them, and white missile trails arcing overhead."""
-    sheet.box(left, top, wide, tall, PALE_SKY)
-    sheet.disc(left + wide - 70, top + 42, 26, BRASS)   # low sun
-    sheet.disc(left + wide - 70, top + 42, 20, (232, 190, 90))
-    # a distant shore
-    sheet.shape([(left, top + 118), (left + 150, top + 96),
-                 (left + 320, top + 112), (left + wide, top + 92),
-                 (left + wide, top + 128), (left, top + 128)],
-                (196, 178, 138))
-    # the sea
-    sheet.box(left, top + 128, wide, tall - 128, DEEP_SEA)
-    sheet.box(left, top + 128, wide, 6, (64, 128, 178))
-    for wy in range(top + 150, top + tall - 8, 18):
-        sheet.box(left + 12 + ((wy * 7) % 40), wy, 60, 3,
-                  (64, 128, 178))
-    # the first tanker (left, on fire)
-    hx, hy = left + 26, top + 168
-    sheet.box(hx, hy, 190, 34, (38, 38, 40))
-    sheet.box(hx + 128, hy - 34, 34, 34, (200, 200, 200))
-    sheet.box(hx + 136, hy - 44, 18, 10, CRIMSON)
-    sheet.box(hx + 8, hy - 16, 26, 16, (220, 220, 210))
-    sheet.box(hx + 150, hy + 34, 12, 26, (38, 38, 40))
-    starburst(sheet, hx + 60, hy - 26, 46, (255, 214, 90), EMBER,
-              CRIMSON)
-    sheet.disc(hx + 30, hy - 58, 16, ASH)
-    sheet.disc(hx + 58, hy - 74, 22, ASH)
-    sheet.disc(hx + 92, hy - 60, 15, ASH)
-    # the second tanker (right, hit at the stern)
-    sx, sy = left + 252, top + 208
-    sheet.box(sx, sy, 210, 30, (52, 52, 56))
-    sheet.box(sx + 30, sy - 30, 30, 30, (200, 200, 200))
-    sheet.box(sx + 38, sy - 40, 14, 10, CRIMSON)
-    sheet.box(sx + 150, sy - 14, 22, 14, (220, 220, 210))
-    starburst(sheet, sx + 205, sy - 8, 34, (255, 214, 90), EMBER,
-              CRIMSON)
-    # missile arcs, drawn as white trails
-    sheet.stroke(left + 60, top + 20, left + 130, top + 120, 3, SNOW)
-    sheet.stroke(left + 130, top + 120, left + 150, top + 152, 3, SNOW)
-    sheet.disc(left + 60, top + 20, 5, SNOW)
-    sheet.stroke(left + 420, top + 26, left + 380, top + 110, 3, SNOW)
-    sheet.stroke(left + 380, top + 110, left + 430, top + 176, 3, SNOW)
-    sheet.disc(left + 420, top + 26, 5, SNOW)
-    # wakes behind the tankers
-    sheet.stroke(hx, hy + 40, hx + 190, hy + 40, 2, (140, 180, 210))
-    sheet.stroke(sx, sy + 36, sx + 210, sy + 36, 2, (140, 180, 210))
-    # place labels
-    sheet.write(left + 14, top + tall - 26, 2, "BAHRAIN", SNOW,
-                heavy=True)
-    sheet.write(left + wide - 14, top + tall - 26, 2, "HORMUZ", SNOW,
-                heavy=True, align="right")
+def centre_creato(sh, s, cx, y, size, weight, color):
+    draw_creato(sh, s, cx - creato_w(s, size, weight) // 2, y, size,
+                weight, color)
 
 
-def paint_climate(sheet, left, top, wide, tall):
-    """A cracked globe hanging over a summit hall: the talks
-    fail."""
-    sheet.box(left, top, wide, tall, (222, 232, 226))
-    # the hall, a low silhouette with a row of windows
-    sheet.box(left, top + tall - 26, wide, 26, (120, 118, 112))
-    for wx in range(left + 18, left + wide - 18, 34):
-        sheet.box(wx, top + tall - 22, 14, 18, (60, 60, 58))
-    sheet.shape([(left, top + tall - 26),
-                 (left + wide // 2, top + tall - 46),
-                 (left + wide, top + tall - 26)], (90, 88, 84))
-    # the globe
-    gx, gy = left + wide // 2, top + tall // 2 - 2
-    gr = min(46, tall // 2 - 6)
-    sheet.disc(gx, gy, gr, NAVY)
-    sheet.disc(gx - 14, gy - 10, 11, MOSS)
-    sheet.disc(gx + 15, gy + 6, 14, MOSS)
-    sheet.disc(gx - 6, gy + 18, 8, MOSS)
-    sheet.disc(gx + 19, gy - 18, 6, MOSS)
-    sheet.oval(gx, gy, gr, int(gr * 0.36), (120, 180, 220))
-    # the crack running across it
-    sheet.stroke(gx - gr + 4, gy - gr // 2, gx - 10, gy - 4, 3,
-                 CRIMSON)
-    sheet.stroke(gx - 10, gy - 4, gx + 4, gy - 16, 3, CRIMSON)
-    sheet.stroke(gx + 4, gy - 16, gx + 18, gy + 2, 3, CRIMSON)
-    sheet.stroke(gx + 18, gy + 2, gx + gr - 4, gy + gr // 2, 3,
-                 CRIMSON)
-    sheet.hoop(gx, gy, gr, 3, INK)
-    # factory smoke off to the left
-    sheet.box(left + 16, top + tall - 52, 8, 30, PEBBLE)
-    sheet.disc(left + 20, top + tall - 60, 8, ASH)
-    sheet.disc(left + 34, top + tall - 68, 9, ASH)
-    # a dimmed sun
-    sheet.disc(left + wide - 30, top + 22, 12, (232, 190, 90))
+# ---- Lemon Milk ------------------------------------------------
+# Real font outlines (baked into lemonmilk_data.py by
+# extract_lemonmilk.py). A glyph is [advance, contour, ...] with
+# y running down from the cap line, so `size` is the cap height
+# in final pixels and y is the top of the capitals. Lemon Milk is
+# caps-only: callers pass uppercase text (lowercase would render
+# as capitals anyway, since the font maps them to the same glyphs).
+
+LEMON = {"bold": lemonmilk_data.BOLD, "regular": lemonmilk_data.REGULAR}
+LEMON_CAP = lemonmilk_data.CAP
 
 
-def paint_kyiv(sheet, left, top, wide, tall):
-    """A five-storey block of flats with its corner smashed in,
-    smoke rising and rescue lights below."""
-    sheet.box(left, top, wide, tall, (214, 208, 196))
-    # sky band
-    sheet.box(left, top, wide, 40, PALE_SKY)
-    sheet.disc(left + wide - 34, top + 20, 11, (240, 220, 150))
-    # the block itself
-    bx, by, bw = left + 46, top + 36, wide - 92
-    bh = tall - 36
-    sheet.box(bx, by, bw, bh, (196, 178, 150))
-    sheet.box(bx, by, bw, 6, (160, 140, 114))
-    floors = 4 if tall >= 130 else (3 if tall >= 110 else 2)
-    across = max(4, (bw - 28) // 40)
-    gap = max(20, (bh - 26) // floors)
-    for floor in range(floors):
-        for col in range(across):
-            wx = bx + 14 + col * 40
-            wy = by + 14 + floor * gap
-            sheet.box(wx, wy, 22, 16, (70, 84, 104))
-            sheet.box(wx, wy, 22, 3, (200, 210, 220))
-    # the collapsed corner: a jagged dark hole and rubble, all
-    # kept inside the block
-    sheet.shape([(bx + bw, by + 8),
-                 (bx + bw - 52, by + int(bh * 0.30)),
-                 (bx + bw - 30, by + int(bh * 0.52)),
-                 (bx + bw - 56, by + int(bh * 0.72)),
-                 (bx + bw - 26, by + int(bh * 0.90)),
-                 (bx + bw, by + bh)], (52, 48, 44))
-    sheet.shape([(bx + bw - 78, by + bh),
-                 (bx + bw - 34, by + bh - 40),
-                 (bx + bw + 8, by + bh - 14), (bx + bw + 8, by + bh),
-                 (bx + bw - 78, by + bh)], (120, 112, 100))
-    sheet.shape([(bx + bw - 50, by + bh - 24),
-                 (bx + bw - 16, by + bh - 34),
-                 (bx + bw + 4, by + bh - 18),
-                 (bx + bw - 24, by + bh - 6)], (90, 84, 74))
-    # smoke above the wreck
-    sheet.disc(bx + bw - 26, by + 12, 14, ASH)
-    sheet.disc(bx + bw - 48, by - 4, 18, ASH)
-    sheet.disc(bx + bw - 8, by - 12, 11, ASH)
+def lemon_w(s, size, weight):
+    """Width of a string in final pixels at the given cap height."""
+    face = LEMON[weight]
+    scale = size / LEMON_CAP
+    return int(round(sum(face[ch][0] for ch in s) * scale))
+
+
+def fit_size(s, max_w, size, weight):
+    """The largest cap height at or below `size` that fits s into
+    max_w final pixels (never below 6, so a headline stays legible)."""
+    while size > 6 and lemon_w(s, size, weight) > max_w:
+        size -= 1
+    return size
+
+
+def draw_lemon(sh, s, x, y, size, weight, color):
+    face = LEMON[weight]
+    scale = size / LEMON_CAP
+    cx = float(x)
+    for ch in s:
+        glyph = face.get(ch)
+        if glyph is None:
+            continue
+        if len(glyph) > 1:
+            contours = []
+            for contour in glyph[1:]:
+                pts = []
+                for i in range(0, len(contour), 2):
+                    pts.append((cx + contour[i] * scale,
+                                y + contour[i + 1] * scale))
+                contours.append(pts)
+            sh.polys(contours, color)
+        cx += glyph[0] * scale
+
+
+def centre_lemon(sh, s, cx, y, size, weight, color):
+    draw_lemon(sh, s, cx - lemon_w(s, size, weight) // 2, y, size,
+               weight, color)
+
+
+def wrap_creato(s, max_w, size, weight="regular"):
+    """Greedy word wrap to at most `max_w` final pixels a line,
+    measured with the font's real advances."""
+    lines, cur = [], ""
+    for word in s.split(" "):
+        trial = word if not cur else cur + " " + word
+        if creato_w(trial, size, weight) <= max_w:
+            cur = trial
+        else:
+            lines.append(cur)
+            cur = word
+    if cur:
+        lines.append(cur)
+    return lines
+
+
+def para_creato(sh, s, x, y, w, size, weight, color, leading):
+    """Draw wrapped body copy in a box of width w; return the y
+    just below the last line."""
+    for ln in wrap_creato(s, w, size, weight):
+        draw_creato(sh, ln, x, y, size, weight, color)
+        y += leading
+    return y
+
+
+def burst_points(cx, cy, r_out, r_in, spikes, rot=0.0):
+    """Alternating-radius polygon: an explosion starburst."""
+    pts = []
+    for i in range(spikes * 2):
+        r = r_out if i % 2 == 0 else r_in
+        a = rot + math.pi * i / spikes
+        pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
+    return pts
+
+
+def explosion(sh, cx, cy, r):
+    sh.poly(burst_points(cx, cy, r, r * 0.45, 9, 0.2), FIRE1)
+    sh.poly(burst_points(cx, cy, r * 0.62, r * 0.30, 8, 0.5), FIRE2)
+    sh.poly(burst_points(cx, cy, r * 0.34, r * 0.16, 7, 0.1), FIRE3)
+
+
+def _yo(y, v, s):
+    """A y-offset inside an illustration, scaled by s."""
+    return y + int(round(v * s))
+
+
+def _sz(v, s):
+    """A size inside an illustration, scaled by s (never 0)."""
+    return max(1, int(round(v * s)))
+
+
+# ---- illustrations ---------------------------------------------
+# Flat vector scenes, one per story. Each takes the sheet and the
+# box it may paint in (final pixels).
+
+def art_gulf(sh, x, y, w, h):
+    """The Strait: two tankers burning under a desert sun.
+
+    Drawn for a 288 px tall box and scaled to the height given,
+    so the lead art can shrink as the page gains stories.
+    """
+    s = h / 288.0
+    sea_top = _yo(y, 140, s)
+    sh.rect(x, y, w, _sz(140, s), SKY)
+    sh.disc(x + 414, _yo(y, 42, s), _sz(26, s), SUN)
+    sh.poly([(x, _yo(y, 130, s)), (x + 170, _yo(y, 112, s)),
+             (x + 320, _yo(y, 124, s)), (x + w, _yo(y, 108, s)),
+             (x + w, sea_top), (x, sea_top)], SAND)
+    sh.rect(x, sea_top, w, h - _sz(140, s), SEA)
+    # missile trails arcing down from the sky
+    sh.line(x + 44, _yo(y, 22, s), x + 94, _yo(y, 172, s), WHITE, 2)
+    sh.line(x + 414, _yo(y, 26, s), x + 434, _yo(y, 196, s), WHITE, 2)
+    sh.disc(x + 44, _yo(y, 22, s), _sz(3, s), WHITE)
+    sh.disc(x + 414, _yo(y, 26, s), _sz(3, s), WHITE)
+    # tanker one, off Bahrain
+    sh.rect(x + 24, _yo(y, 192, s), 180, _sz(34, s), HULL)
+    sh.rect(x + 134, _yo(y, 168, s), 34, _sz(24, s), DECK)
+    sh.rect(x + 142, _yo(y, 160, s), 18, _sz(8, s), RED)
+    sh.rect(x + 24, _yo(y, 192, s), 180, _sz(5, s), DECK)
+    # tanker two, near Hormuz
+    sh.rect(x + 284, _yo(y, 212, s), 170, _sz(30, s), HULL)
+    sh.rect(x + 304, _yo(y, 188, s), 30, _sz(24, s), DECK)
+    sh.rect(x + 311, _yo(y, 180, s), 16, _sz(8, s), RED)
+    sh.rect(x + 284, _yo(y, 212, s), 170, _sz(5, s), DECK)
+    # smoke over the first tanker
+    sh.disc(x + 64, _yo(y, 136, s), _sz(16, s), SMOKE)
+    sh.disc(x + 84, _yo(y, 122, s), _sz(20, s), SMOKE2)
+    sh.disc(x + 108, _yo(y, 138, s), _sz(14, s), SMOKE)
+    sh.disc(x + 420, _yo(y, 168, s), _sz(13, s), SMOKE)
+    # explosions
+    explosion(sh, x + 94, _yo(y, 178, s), _sz(30, s))
+    explosion(sh, x + 434, _yo(y, 200, s), _sz(22, s))
+    # wave lines and place labels
+    for wx, wy, wl in [(36, 252, 120), (102, 266, 74), (296, 258, 130),
+                       (330, 268, 64)]:
+        sh.rect(x + wx, _yo(y, wy, s), wl, _sz(3, s), WAVE)
+    draw_creato(sh, "BAHRAIN", x + 10, y + h - 20, 11, "regular", WHITE)
+    draw_creato(sh, "HORMUZ", x + w - 10 - creato_w("HORMUZ", 11),
+                y + h - 20, 11, "regular", WHITE)
+
+
+def art_climate(sh, x, y, w, h):
+    """Antalya: the summit hall under a falling-earth globe.
+
+    Drawn for a 100 px tall box and scaled to the height given.
+    """
+    s = h / 100.0
+    sh.rect(x, y, w, h, SKY2)
+    sh.disc(x + w - 42, _yo(y, 24, s), _sz(14, s), SUN)
+    # smokestacks with drifting smoke
+    sh.rect(x + 26, _yo(y, 26, s), 14, _sz(44, s), GREY)
+    sh.rect(x + 46, _yo(y, 34, s), 14, _sz(36, s), GREY)
+    sh.disc(x + 33, _yo(y, 18, s), _sz(9, s), SMOKE)
+    sh.disc(x + 50, _yo(y, 12, s), _sz(7, s), SMOKE2)
+    # the hall: long low block with a roof and a row of windows
+    sh.rect(x + 10, _yo(y, 56, s), w - 20, _sz(44, s), HALL)
+    sh.poly([(x + 4, _yo(y, 56, s)), (x + w - 4, _yo(y, 56, s)),
+             (x + w - 30, _yo(y, 42, s)), (x + 30, _yo(y, 42, s))], ROOF)
+    for i in range(9):
+        sh.rect(x + 26 + i * 46, _yo(y, 70, s), 26, _sz(16, s), WINDOW)
+    # the globe, with a red line falling across it
+    gx, gy = x + w // 2, _yo(y, 50, s)
+    sh.disc(gx, gy, _sz(34, s), GLOBE)
+    sh.disc(gx - 12, gy - _sz(10, s), _sz(9, s), LAND)
+    sh.disc(gx + 12, gy + _sz(8, s), _sz(11, s), LAND)
+    sh.disc(gx + 4, gy - _sz(16, s), _sz(6, s), LAND)
+    sh.line(gx - 24, gy - _sz(18, s), gx - 6, gy + _sz(2, s), RED, 3)
+    sh.line(gx - 6, gy + _sz(2, s), gx + 8, gy - _sz(6, s), RED, 3)
+    sh.line(gx + 8, gy - _sz(6, s), gx + 24, gy + _sz(14, s), RED, 3)
+    sh.poly([(gx + 24, gy + _sz(14, s)), (gx + 14, gy + _sz(12, s)),
+             (gx + 20, gy + _sz(4, s))], RED)
+
+
+def art_kyiv(sh, x, y, w, h):
+    """A five-storey flat block, its corner smashed away.
+
+    Drawn for a 100 px tall box and scaled to the height given.
+    """
+    s = h / 100.0
+    sh.rect(x, y, w, h, SKY2)
+    sh.disc(x + w - 36, _yo(y, 20, s), _sz(13, s), SUN)
+    bx, by, bw, bh = x + 26, _yo(y, 20, s), w - 52, _sz(80, s)
+    sh.rect(bx, by, bw, bh, TAN)
+    for row in range(4):
+        for col in range(11):
+            wx = bx + 12 + col * 38
+            wy = by + _sz(10, s) + row * _sz(18, s)
+            if col >= 9 and row <= 1:
+                continue  # the smashed corner has no windows
+            sh.rect(wx, wy, 22, _sz(11, s), WINDOW)
+    # the smashed corner: dark rubble and smoke
+    sh.poly([(bx + bw - 70, by), (bx + bw, by), (bx + bw, by + _sz(44, s)),
+             (bx + bw - 44, by + _sz(30, s)), (bx + bw - 62, by + _sz(16, s))],
+            RUBBLE)
+    sh.disc(bx + bw - 30, by - _sz(6, s), _sz(16, s), SMOKE)
+    sh.disc(bx + bw - 52, by - _sz(12, s), _sz(12, s), SMOKE2)
+    sh.disc(bx + bw - 12, by + _sz(6, s), _sz(10, s), SMOKE)
     # rescue lights at the foot of the block
-    sheet.disc(bx + 26, by + bh - 10, 5, CRIMSON)
-    sheet.disc(bx + 44, by + bh - 10, 5, EMBER)
-    # ground line
-    sheet.box(left, top + tall - 6, wide, 6, (120, 116, 106))
+    sh.disc(bx + 60, y + h - 8, _sz(5, s), RED)
+    sh.disc(bx + 82, y + h - 8, _sz(5, s), FIRE2)
+    sh.disc(bx + 104, y + h - 8, _sz(5, s), RED)
 
 
-def paint_nato(sheet, left, top, wide, tall):
-    """A NATO compass star in a blue roundel, jets above and a
-    runway below."""
-    sheet.box(left, top, wide, tall, (222, 230, 238))
-    cx, cy = left + wide // 2, top + tall // 2 - 2
-    radius = max(18, tall // 2 - 10)
-    sheet.disc(cx, cy, radius, NAVY)
-    sheet.hoop(cx, cy, radius, 3, SNOW)
-    # the four-point compass star
-    for bearing in (90, 210, 330, -90):
-        angle = radians(bearing)
-        tip = radius - 4 if bearing != -90 else radius - 8
-        sheet.shape([(cx, cy),
-                     (cx + int(radius * 0.42 * cos(angle - 0.30)),
-                      cy + int(radius * 0.42 * sin(angle - 0.30))),
-                     (cx + int(tip * cos(angle)),
-                      cy + int(tip * sin(angle))),
-                     (cx + int(radius * 0.42 * cos(angle + 0.30)),
-                      cy + int(radius * 0.42 * sin(angle + 0.30)))],
-                    SNOW)
-    sheet.disc(cx, cy, 4, SNOW)
-    # two jets crossing the top
-    for jx, jy in ((left + 24, top + 12), (left + wide - 24, top + 16)):
-        sheet.shape([(jx - 14, jy), (jx + 12, jy - 4), (jx + 17, jy),
-                     (jx + 12, jy + 4)], (60, 60, 64))
-        sheet.shape([(jx - 2, jy - 3), (jx + 5, jy - 10),
-                     (jx + 8, jy - 3)], (60, 60, 64))
-    # the runway
-    sheet.box(left, top + tall - 14, wide, 14, (70, 70, 72))
-    for dash in range(8, wide, 28):
-        sheet.box(left + dash, top + tall - 9, 14, 3, SNOW)
+def art_nato(sh, x, y, w, h):
+    """Brussels: the compass star over a runway, jets overhead.
+
+    Drawn for an 88 px tall box and scaled to the height given.
+    """
+    s = h / 88.0
+    sh.rect(x, y, w, h, SKY2)
+    cx, cy = x + w // 2, _yo(y, 36, s)
+    sh.disc(cx, cy, _sz(30, s), NAVY)
+    r = _sz(26, s)
+    q = _sz(5, s)
+    sh.poly([(cx, cy - r), (cx + q, cy - q), (cx + r, cy),
+             (cx + q, cy + q), (cx, cy + r), (cx - q, cy + q),
+             (cx - r, cy), (cx - q, cy - q)], WHITE)
+    # two jets crossing the sky
+    for jx, jy in [(x + 18, _yo(y, 12, s)), (x + w - 52, _yo(y, 18, s))]:
+        sh.poly([(jx, jy + _sz(4, s)), (jx + 26, jy),
+                 (jx + 30, jy + _sz(3, s)), (jx + 12, jy + _sz(7, s)),
+                 (jx + 16, jy + _sz(12, s)), (jx + 9, jy + _sz(8, s)),
+                 (jx, jy + _sz(8, s))], INK)
+    # the runway with its dashed centre line
+    sh.rect(x, y + h - _sz(22, s), w, _sz(22, s), RUNWAY)
+    for i in range(8):
+        sh.rect(x + 10 + i * 40, y + h - _sz(12, s), 20, _sz(3, s), WHITE)
 
 
-def paint_delhi(sheet, left, top, wide, tall):
-    """Nepal's red pennants and India's tricolour over Delhi's
-    arch, with the Himalaya behind."""
-    sheet.box(left, top, wide, tall, (238, 228, 208))
-    # the Himalaya ridge
-    sheet.shape([(left, top + tall), (left + 60, top + tall - 52),
-                 (left + 120, top + tall)], (120, 130, 140))
-    sheet.shape([(left + 80, top + tall),
-                 (left + 170, top + tall - 64),
-                 (left + 260, top + tall)], (90, 100, 114))
-    sheet.shape([(left + 152, top + tall - 40),
-                 (left + 170, top + tall - 64),
-                 (left + 188, top + tall - 40)], SNOW)
-    # the India Gate arch
-    ax = left + wide // 2 - 30
-    sheet.box(ax, top + tall - 48, 60, 48, (176, 140, 96))
-    sheet.shape([(ax - 5, top + tall - 48), (ax + 65, top + tall - 48),
-                 (ax + 55, top + tall - 60), (ax + 5, top + tall - 60)],
-                (160, 124, 84))
-    sheet.box(ax + 21, top + tall - 34, 18, 34, NEWSPRINT)
-    sheet.disc(ax + 30, top + tall - 34, 9, NEWSPRINT)
-    # Nepal's pennants on the left flagpole
-    fx, fy = left + 20, top + 10
-    sheet.box(fx, fy, 3, 56, (90, 70, 60))
-    sheet.shape([(fx + 3, fy + 2), (fx + 36, fy + 11),
-                 (fx + 3, fy + 20)], (200, 40, 50))
-    sheet.shape([(fx + 3, fy + 22), (fx + 30, fy + 30),
-                 (fx + 3, fy + 40)], (200, 40, 50))
-    sheet.disc(fx + 13, fy + 11, 2, SNOW)
-    sheet.disc(fx + 11, fy + 30, 2, SNOW)
-    # India's tricolour on the right flagpole
-    gx = left + wide - 58
-    sheet.box(gx, fy, 3, 56, (90, 70, 60))
-    sheet.box(gx + 3, fy + 2, 38, 11, (230, 130, 40))
-    sheet.box(gx + 3, fy + 13, 38, 11, SNOW)
-    sheet.box(gx + 3, fy + 24, 38, 11, (20, 130, 70))
-    sheet.hoop(gx + 22, fy + 18, 5, 2, NAVY)
+def art_delhi(sh, x, y, w, h):
+    """New Delhi: mountains, the Gate, and two flags.
+
+    Drawn for an 88 px tall box and scaled to the height given.
+    """
+    s = h / 88.0
+    sh.rect(x, y, w, h, (240, 230, 205))
+    sh.poly([(x, y + h), (x + 90, _yo(y, 26, s)), (x + 180, y + h)], MOUNT)
+    sh.poly([(x + 120, y + h), (x + 230, _yo(y, 18, s)), (x + 320, y + h)],
+            MOUNT2)
+    # the Gate: arch, dome and doorway
+    gx = x + w // 2
+    sh.rect(gx - 30, _yo(y, 40, s), 60, _sz(44, s), ARCH)
+    sh.rect(gx - 36, _yo(y, 32, s), 72, _sz(10, s), ARCH)
+    sh.disc(gx, _yo(y, 32, s), _sz(10, s), ARCH)
+    sh.rect(gx - 8, _yo(y, 56, s), 16, _sz(28, s), SKY2)
+    sh.disc(gx, _yo(y, 56, s), _sz(8, s), SKY2)
+    # Nepal's pennant on the left, India's tricolour on the right
+    px = x + 22
+    sh.line(px, _yo(y, 16, s), px, y + h - 6, INK, 2)
+    sh.poly([(px, _yo(y, 18, s)), (px + 26, _yo(y, 26, s)),
+             (px, _yo(y, 34, s))], RED)
+    sh.poly([(px, _yo(y, 34, s)), (px + 20, _yo(y, 40, s)),
+             (px, _yo(y, 46, s))], RED)
+    fx = x + w - 58
+    sh.line(fx, _yo(y, 16, s), fx, y + h - 6, INK, 2)
+    sh.rect(fx, _yo(y, 18, s), 34, _sz(8, s), SAFFRON)
+    sh.rect(fx, _yo(y, 26, s), 34, _sz(8, s), WHITE)
+    sh.rect(fx, _yo(y, 34, s), 34, _sz(8, s), IGREEN)
+    sh.disc(fx + 17, _yo(y, 30, s), _sz(3, s), NAVY)
 
 
-def paint_cricket(sheet, left, top, wide, tall):
-    """A green outfield, the pitch, a leaning bat, a red ball in
-    flight and the big score on a board."""
-    sheet.box(left, top, wide, tall, (96, 158, 74))
-    sheet.oval(left + wide // 2, top + tall - 10, wide // 2 - 6, 18,
-               (74, 132, 58))
-    # the pitch
-    sheet.shape([(left + 96, top + tall - 6), (left + 124, top + 20),
-                 (left + wide - 124, top + 20),
-                 (left + wide - 96, top + tall - 6)], BEACH)
-    sheet.box(left + wide // 2 - 2, top + 24, 4, tall - 34, SNOW)
-    # the stumps
-    for sx in (left + wide // 2 - 62, left + wide // 2 - 54,
-               left + wide // 2 - 46):
-        sheet.box(sx, top + 26, 4, 18, BRASS)
-    sheet.box(left + wide // 2 - 62, top + 23, 22, 3, BRASS)
-    # a bat leaning on the pitch
-    sheet.shape([(left + 60, top + tall - 12),
-                 (left + 80, top + tall - 18),
-                 (left + 116, top + 30), (left + 106, top + 26)],
-                (196, 164, 110))
-    sheet.box(left + 104, top + 16, 7, 14, (120, 90, 60))
-    # the red ball in flight
-    sheet.disc(left + wide - 56, top + 34, 9, CRIMSON)
-    sheet.disc(left + wide - 59, top + 31, 3, (255, 200, 200))
-    # the scoreboard
-    bx, by = left + wide - 132, top + tall - 40
-    sheet.box(bx, by, 118, 32, INK)
-    sheet.box(bx + 3, by + 3, 112, 26, (30, 30, 30))
-    sheet.write(bx + 59, by + 6, 3, "720/9", BRASS, heavy=True,
-                align="center")
+def art_cricket(sh, x, y, w, h):
+    """Wellington: the pitch, the stumps, and 720 for 9.
+
+    Drawn for an 88 px tall box and scaled to the height given.
+    """
+    s = h / 88.0
+    sh.rect(x, y, w, h, GREEN)
+    sh.rect(x, y + h - _sz(26, s), w, _sz(26, s), GREEN2)
+    # the pitch, a pale strip down the middle
+    sh.rect(x + w // 2 - 20, _yo(y, 8, s), 40, h - _sz(16, s), PITCH)
+    # stumps at each end
+    for sy in (_yo(y, 14, s), y + h - _sz(26, s)):
+        for k in range(3):
+            sh.rect(x + w // 2 - 9 + k * 7, sy, 3, _sz(12, s), WHITE)
+    # the ball, mid-flight
+    sh.disc(x + w - 46, _yo(y, 22, s), _sz(7, s), RED)
+    sh.disc(x + w - 48, _yo(y, 20, s), _sz(2, s), WHITE)
+    # the scoreboard, Creato Bold centred in the black box
+    bx, by = x + w - 106, _yo(y, 34, s)
+    sh.frame(bx, by, 96, _sz(34, s), WHITE, 1)
+    sh.rect(bx + 1, by + 1, 94, _sz(32, s), BOARD)
+    score = "720/9"
+    draw_creato(sh, score, bx + (96 - creato_w(score, 9, "bold")) // 2,
+                by + 5, 9, "bold", YELLOW)
 
 
-# -------------------------------------------------------------------- page
-def frame(sheet, x, y, wide, tall):
-    """A story card: a pale face with a two-pixel ink border."""
-    sheet.box(x, y, wide, tall, CARD_BG)
-    sheet.box(x, y, wide, 2, INK)
-    sheet.box(x, y, 2, tall, INK)
-    sheet.box(x + wide - 2, y, 2, tall, INK)
-    sheet.box(x, y + tall - 2, wide, 2, INK)
+# ---- the page --------------------------------------------------
 
+LEAD_BODY = (
+    "Iranian missiles hit a civilian plant in Sitra, Bahrain, hurt "
+    "two people and set it ablaze, as Tehran says it aimed at US "
+    "bases. Two tankers were hit near Hormuz. Saudi jets down a "
+    "Houthi missile, and the US denies an Iranian claim it hit a US jet."
+)
+COP_BODY = (
+    "The UN climate summit in Antalya ends in failure as the EU "
+    "rejects a final text with no mention of fossil fuels."
+)
+KYIV_BODY = (
+    "A Russian drone hits a five-storey home near Kyiv and part of "
+    "it falls in; nine are safe, fourteen feared trapped."
+)
+NATO_BODY = "Allies meet in Brussels after Russian missiles and a drone cross into Poland."
+NEPAL_BODY = "Nepal PM Balendra Shah holds talks with PM Narendra Modi in Delhi on a state visit."
+CRICKET_BODY = "India declare on 720 for nine in Wellington, the best in their Test history."
 
-def article(sheet, x, y, wide, tall, kicker, headline, brief, scene,
-            art_h=118, head_size=3):
-    """One story card: a picture strip on top, then a red kicker,
-    a wrapped headline and a short brief underneath."""
-    frame(sheet, x, y, wide, tall)
-    scene(sheet, x + 2, y + 2, wide - 4, art_h)
-    ty = y + art_h + 10
-    sheet.write(x + 12, ty, 2, kicker, CRIMSON, heavy=True)
-    ty += 22
-    head_lines = split_lines(headline, head_size, wide - 24,
-                             heavy=True)
-    ty = sheet.block(x + 12, ty, head_size, head_lines, INK,
-                     heavy=True, gap=7 * head_size + 5)
-    ty += 4
-    brief_lines = split_lines(brief, 2, wide - 24)
-    sheet.block(x + 12, ty, 2, brief_lines, SOFT_INK, gap=18)
-
-
-# The two lower rows, as data: kicker, headline, brief, scene.
-SECOND_ROW = [
-    ("CLIMATE: ANTALYA, TURKEY",
-     "COP31 COLLAPSES WITH NO DEAL ON FOSSIL FUELS",
-     "The UN climate summit ends in failure as the EU "
-     "rejects a final text with no mention of fossil "
-     "fuels.",
-     paint_climate),
-    ("WAR IN UKRAINE: KYIV REGION",
-     "DRONE SMASHES FLAT BLOCK: 14 FEARED TRAPPED",
-     "A Russian drone hits a five-storey home in the "
-     "Kyiv area and part of it falls in. Rescuers hunt "
-     "for survivors; nine people are safe.",
-     paint_kyiv),
+# ---- small stories: 21 in a 3 x 7 grid ------------------------
+# Each is (headline, body): the headline fits one line of Lemon
+# Milk Bold at cap 10 in 314 px, the body two lines of Creato
+# Regular at cap 10 (both measured, not guessed). All 21 are real
+# news of Monday 23 November 2026, researched for this revision:
+# the first 18 are new, the last 3 are the old ticker briefs
+# promoted to full stories. No detail is used that could not be
+# verified; where a figure was unconfirmed it was left out.
+SMALL_STORIES = [
+    # row 1
+    ("DEMOCRATS WIN BIG HOUSE MAJORITY",
+     "Democrats clinch at least 258 House seats, their largest "
+     "majority since 1992."),
+    ("WALL STREET FUTURES REBOUND",
+     "Dow futures jump 798 points as stocks rebound after the "
+     "worst week in six years."),
+    ("INDIA, CHINA OPEN BORDER TALKS",
+     "Commanders meet in Arunachal Pradesh for 10 days of talks "
+     "to ease border tensions."),
+    # row 2
+    ("KOSPI PLUNGES AS SEOUL STEPS IN",
+     "South Korea's main index falls as much as 5.8% before "
+     "officials pledge market stabilisation funds."),
+    ("ANTHROPIC SHARES FALL AFTER IPO",
+     "Shares slide after a record 81.3 billion dollar listing "
+     "briefly minted decabillionaires."),
+    ("FOUR DEAD IN STRIKE ON HODEIDA",
+     "Houthi media say a Saudi attack on Yemen's key port city "
+     "kills four people and wounds 18."),
+    # row 3
+    ("M6.5 QUAKE STRIKES VANUATU REGION",
+     "A deep earthquake shakes the Vanuatu region, 598 km down."),
+    ("NHS LAUNCHES HUGE AI CANCER TRIAL",
+     "The world's largest trial asks whether AI can spot breast "
+     "cancer earlier, the BBC reports."),
+    ("49ERS TROUNCE VIKINGS 35-10",
+     "San Francisco dominate Minnesota 35-10 in Mexico City; "
+     "the Chiefs and Bills also win."),
+    # row 4
+    ("LIVERPOOL THRASH MAN UTD 4-0",
+     "Liverpool rout Manchester United at Anfield in Mauricio "
+     "Pochettino's first game as United coach."),
+    ("BARCA FIGHT BACK TO WIN 3-2",
+     "Barcelona come back from two goals down to beat Villarreal "
+     "3-2 and restore their La Liga lead."),
+    ("FIFA TO CONFIRM UK AS 2035 HOST",
+     "The UK's four home nations will stage the 2035 Women's "
+     "World Cup, the first in Britain since 1966."),
+    # row 5
+    ("METS SIGN SKUBAL FOR RECORD 450M",
+     "The New York Mets agree a record nine-year, 450 million "
+     "dollar deal for pitcher Tarik Skubal."),
+    ("LARKIN TRADED TO CANADIENS",
+     "Detroit trade former captain Dylan Larkin to Montreal in "
+     "a major NHL blockbuster deal."),
+    ("CO-OP LIVE EVACUATED IN GAS SCARE",
+     "The arena is evacuated during a concert after a suspected "
+     "tear gas release."),
+    # row 6
+    ("PROTEST AT SEATTLE AIRPORT",
+     "Crowds gather after footage shows ICE agents detaining a "
+     "father and daughter boarding a flight."),
+    ("SHURI CASTLE HALL REOPENS",
+     "Okinawa's rebuilt Shuri Castle main hall opens to the "
+     "public, seven years after fire destroyed it."),
+    ("COMPASS PLANS NEW YORK LISTING",
+     "The FTSE 100 catering giant plans to move its stock market "
+     "listing to New York, the FT reports."),
+    # row 7: the old ticker briefs, promoted
+    ("INDONESIA FIRE: 24 BODY BAGS FOUND",
+     "Rescuers recover 24 body bags from the candy factory fire "
+     "in Cikande; dozens are still missing."),
+    ("SEOUL MINISTER QUITS IN EXAM ROW",
+     "A South Korean minister resigns after an AI exam row."),
+    ("LISBON MARCHES ON COST OF LIFE",
+     "Marchers take to the streets of Lisbon over the cost "
+     "of living."),
 ]
 
-THIRD_ROW = [
-    ("EUROPE: BRUSSELS",
-     "NATO MEETS AS POLAND CITES INCURSION",
-     "Allies meet after Russian missiles and a drone "
-     "cross into Poland.",
-     paint_nato),
-    ("SOUTH ASIA: NEW DELHI",
-     "NEPAL PM MEETS MODI IN DELHI ON STATE VISIT",
-     "Nepal PM Balendra Shah holds talks with PM "
-     "Narendra Modi in Delhi.",
-     paint_delhi),
-    ("SPORT: WELLINGTON TEST",
-     "INDIA 720 FOR 9: A RECORD TOTAL",
-     "India declare on 720 for nine, the best in their "
-     "Test history.",
-     paint_cricket),
-]
-
-LEAD_COPY = ("Iranian missiles hit a civilian plant in Sitra, "
-             "Bahrain, hurt two people and set it ablaze, as "
-             "Tehran says it aimed at US bases. Two tankers "
-             "were hit near Hormuz. Saudi jets down a Houthi "
-             "missile, and the US denies an Iranian claim it "
-             "hit a US jet.")
+# Ticker briefs: three more items, one line each.
+TICKER_1 = "PAOLO BULGARI DIES AGED 89 - UK DRAWS UP UNIVERSAL CREDIT REFORM"
+TICKER_2 = "CINCINNATI STUN NASHVILLE 1-0 IN MLS PLAYOFFS"
 
 
-def build_page():
-    """Lay out the whole front page and hand back the sheet."""
-    sheet = Sheet(SIDE, NEWSPRINT)
+def small_box(sh, bx, ry, headline, body):
+    """One small story in the grid: a Lemon Milk headline over
+    Creato body copy, 314 px of text width, at most 2 body lines
+    so nothing can spill into the row below."""
+    draw_lemon(sh, headline, bx + 8, ry + 4,
+               fit_size(headline, 314, 10, "bold"), "bold", INK)
+    y = ry + 19
+    for ln in wrap_creato(body, 314, 10)[:2]:
+        draw_creato(sh, ln, bx + 8, y, 10, "regular", INK)
+        y += 13
 
-    # ---- masthead
-    sheet.box(EDGE, 10, SPAN, 2, INK)
-    sheet.write(SIDE // 2, 20, 6, "THE WORLD IN ONE DAY", INK,
-                heavy=True, align="center")
-    sheet.write(SIDE // 2, 74, 3, "MONDAY 23 NOVEMBER 2026", CRIMSON,
-                heavy=True, align="center")
-    sheet.write(SIDE // 2, 104, 2,
-                "SIX STORIES FROM A DAY OF WAR, CLIMATE FAILURE AND "
-                "RECORD SPORT", FADED, align="center")
-    sheet.box(EDGE, 130, SPAN, 4, INK)
-    sheet.box(EDGE, 138, SPAN, 1, INK)
 
-    # ---- the lead story: the Gulf war widens
-    lx, ly, lw, lh = EDGE, 152, SPAN, 300
-    frame(sheet, lx, ly, lw, lh)
-    paint_gulf(sheet, lx + 2, ly + 2, 486, lh - 4)
-    tx = lx + 502
-    ty = ly + 16
-    sheet.write(tx, ty, 2, "LEAD STORY: THE GULF WAR", CRIMSON,
-                heavy=True)
-    ty += 26
-    head_lines = split_lines("IRAN HITS BAHRAIN AS TANKERS BURN IN THE "
-                             "STRAIT", 3, lw - 514, heavy=True)
-    ty = sheet.block(tx, ty, 3, head_lines, INK, heavy=True, gap=27)
-    ty += 8
-    brief_lines = split_lines(LEAD_COPY, 2, lw - 514)
-    ty = sheet.block(tx, ty, 2, brief_lines, SOFT_INK, gap=19)
-    ty += 12
-    sheet.box(tx, ty, lw - 514, 2, CRIMSON)
-    ty += 10
-    sheet.write(tx, ty, 2, "2 HURT, 2 TANKERS, 1 MISSILE DOWN", CRIMSON,
-                heavy=True)
+def build_page(sh):
+    sh.frame(4, 4, 1016, 1016, INK, 2)
 
-    # ---- second row: COP31 and Kyiv
-    half = (SPAN - 8) // 2
-    for i, (kicker, headline, brief, scene) in enumerate(SECOND_ROW):
-        article(sheet, EDGE + i * (half + 8), 462, half, 260,
-                kicker, headline, brief, scene, art_h=92)
+    # masthead: Lemon Milk Bold, fitted to the page width
+    mast_size = fit_size("THE WORLD IN ONE DAY", 1000, 44, "bold")
+    centre_lemon(sh, "THE WORLD IN ONE DAY", 512, 6, mast_size, "bold", INK)
+    date_size = fit_size("MONDAY 23 NOVEMBER 2026", 1000, 22, "regular")
+    centre_lemon(sh, "MONDAY 23 NOVEMBER 2026", 512, 54, date_size,
+                 "regular", RED)
+    centre_creato(sh, "THIRTY STORIES FROM A DAY OF WAR, CLIMATE FAILURE AND RECORD SPORT",
+                  512, 82, 11, "regular", GREY)
+    sh.rect(12, 100, 1000, 3, INK)
+    sh.rect(12, 104, 1000, 1, INK)
 
-    # ---- third row: NATO, Nepal, cricket
-    third = (SPAN - 16) // 3
-    for i, (kicker, headline, brief, scene) in enumerate(THIRD_ROW):
-        article(sheet, EDGE + i * (third + 8), 732, third, 216,
-                kicker, headline, brief, scene, art_h=80, head_size=2)
+    # ---- lead story --------------------------------------------
+    sh.frame(10, 108, 1004, 200, INK, 2)
+    art_gulf(sh, 12, 110, 480, 196)
+    sh.rect(492, 110, 2, 196, INK)
+    tx = 504
+    draw_lemon(sh, "LEAD STORY: THE GULF WAR", tx, 116,
+               fit_size("LEAD STORY: THE GULF WAR", 498, 12, "regular"),
+               "regular", RED)
+    for i, line in enumerate(("IRAN HITS BAHRAIN", "AS TANKERS BURN IN",
+                              "THE STRAIT")):
+        draw_lemon(sh, line, tx, 134 + i * 25,
+                   fit_size(line, 498, 19, "bold"), "bold", INK)
+    para_creato(sh, LEAD_BODY, tx, 216, 498, 13, "regular", INK, 17)
+    sh.rect(tx, 286, 498, 2, RED)
+    draw_creato(sh, "2 HURT, 2 TANKERS, 1 MISSILE DOWN", tx, 292, 12, "bold", RED)
 
-    # ---- footer ticker and source line
-    sheet.box(EDGE, 958, SPAN, 2, INK)
-    sheet.write(EDGE, 966, 2,
-                "ALSO TODAY: FACTORY FIRE IN INDONESIA LEAVES 7 DEAD, "
-                "50 UNACCOUNTED FOR",
-                INK, heavy=True)
-    sheet.write(EDGE, 984, 2,
-                "SEOUL MINISTER QUITS IN AI EXAM ROW - LISBON MARCHES "
-                "ON COST OF LIFE",
-                INK, heavy=True)
-    sheet.write(EDGE, 1002, 2,
-                "DRAWN IN CODE - NO PHOTO - SOURCES: REUTERS, AP, CNBC - "
-                "23 NOVEMBER 2026",
-                FADED)
-    return sheet
+    # ---- middle row: climate and Kyiv --------------------------
+    sh.frame(10, 316, 498, 160, INK, 2)
+    art_climate(sh, 12, 318, 494, 56)
+    sh.rect(12, 374, 494, 2, INK)
+    draw_lemon(sh, "CLIMATE: ANTALYA, TURKEY", 20, 382,
+               fit_size("CLIMATE: ANTALYA, TURKEY", 474, 12, "regular"),
+               "regular", RED)
+    for i, line in enumerate(("COP31 COLLAPSES WITH NO",
+                              "DEAL ON FOSSIL FUELS")):
+        draw_lemon(sh, line, 20, 400 + i * 21,
+                   fit_size(line, 474, 14, "bold"), "bold", INK)
+    para_creato(sh, COP_BODY, 20, 442, 474, 12, "regular", INK, 16)
+
+    sh.frame(516, 316, 498, 160, INK, 2)
+    art_kyiv(sh, 518, 318, 494, 56)
+    sh.rect(518, 374, 494, 2, INK)
+    draw_lemon(sh, "WAR IN UKRAINE: KYIV REGION", 526, 382,
+               fit_size("WAR IN UKRAINE: KYIV REGION", 474, 12, "regular"),
+               "regular", RED)
+    for i, line in enumerate(("DRONE SMASHES FLAT BLOCK:",
+                              "14 FEARED TRAPPED")):
+        draw_lemon(sh, line, 526, 400 + i * 21,
+                   fit_size(line, 474, 14, "bold"), "bold", INK)
+    para_creato(sh, KYIV_BODY, 526, 442, 474, 12, "regular", INK, 16)
+
+    # ---- bottom row: NATO, Delhi, cricket ----------------------
+    boxes = [
+        (10, "EUROPE: BRUSSELS", "NATO MEETS AS POLAND",
+         "CITES INCURSION", NATO_BODY, art_nato),
+        (348, "SOUTH ASIA: NEW DELHI", "NEPAL PM MEETS MODI IN",
+         "DELHI ON STATE VISIT", NEPAL_BODY, art_delhi),
+        (686, "SPORT: WELLINGTON TEST", "INDIA 720 FOR 9: A",
+         "RECORD TOTAL", CRICKET_BODY, art_cricket),
+    ]
+    for bx, kicker, head1, head2, body, art in boxes:
+        sh.frame(bx, 484, 330, 142, INK, 2)
+        art(sh, bx + 2, 486, 326, 48)
+        sh.rect(bx + 2, 534, 326, 2, INK)
+        draw_lemon(sh, kicker, bx + 10, 542,
+                   fit_size(kicker, 314, 12, "regular"), "regular", RED)
+        draw_lemon(sh, head1, bx + 10, 560,
+                   fit_size(head1, 314, 11, "bold"), "bold", INK)
+        draw_lemon(sh, head2, bx + 10, 578,
+                   fit_size(head2, 314, 11, "bold"), "bold", INK)
+        para_creato(sh, body, bx + 10, 596, 314, 11, "regular", INK, 14)
+
+    # ---- small stories: 21 in a 3 x 7 grid --------------------
+    # One outer frame, 1 px rules between rows and columns, and
+    # the stories in reading order (row-major).
+    grid_y, grid_h = 634, 334
+    sh.frame(10, grid_y, 1006, grid_h, INK, 1)
+    rows = [grid_y + round(i * grid_h / 7) for i in range(8)]
+    for ry in rows[1:-1]:
+        sh.rect(11, ry, 1004, 1, INK)
+    for vx in (344, 682):
+        sh.rect(vx, grid_y + 1, 1, grid_h - 2, INK)
+    for i, (headline, body) in enumerate(SMALL_STORIES):
+        row, col = divmod(i, 3)
+        small_box(sh, 10 + col * 338, rows[row], headline, body)
+
+    # ---- ticker and footer -------------------------------------
+    sh.frame(10, 974, 1004, 32, INK, 2)
+    lead = "ALSO TODAY:"
+    draw_lemon(sh, lead, 20, 980, 11, "bold", INK)
+    # A full 12 px gap after the Lemon Milk lead-in: the font's
+    # own space advance (under 5 px at this size) reads as no
+    # gap at all next to the Creato text that follows.
+    rest_x = 20 + lemon_w(lead, 11, "bold") + 12
+    draw_creato(sh, TICKER_1, rest_x, 980, 10, "regular", INK)
+    draw_creato(sh, TICKER_2, 20, 993, 10, "regular", INK)
+    centre_creato(sh, "DRAWN IN CODE - NO PHOTO - SOURCES: REUTERS, AP, CNBC - "
+                      "23 NOVEMBER 2026", 512, 1009, 8, "regular", GREY)
+
+
+# ---- output ----------------------------------------------------
+
+def shrink(sh):
+    """Average each 3x3 device block down to one final pixel."""
+    out = bytearray(W * H * 3)
+    src = sh.buf
+    for fy in range(H):
+        r0 = fy * 3 * CW * 3
+        r1 = r0 + CW * 3
+        r2 = r1 + CW * 3
+        o = fy * W * 3
+        for fx in range(W):
+            i0 = r0 + fx * 9
+            j0 = r1 + fx * 9
+            k0 = r2 + fx * 9
+            out[o] = (src[i0] + src[i0 + 3] + src[i0 + 6]
+                      + src[j0] + src[j0 + 3] + src[j0 + 6]
+                      + src[k0] + src[k0 + 3] + src[k0 + 6] + 4) // 9
+            out[o + 1] = (src[i0 + 1] + src[i0 + 4] + src[i0 + 7]
+                          + src[j0 + 1] + src[j0 + 4] + src[j0 + 7]
+                          + src[k0 + 1] + src[k0 + 4] + src[k0 + 7] + 4) // 9
+            out[o + 2] = (src[i0 + 2] + src[i0 + 5] + src[i0 + 8]
+                          + src[j0 + 2] + src[j0 + 5] + src[j0 + 8]
+                          + src[k0 + 2] + src[k0 + 5] + src[k0 + 8] + 4) // 9
+            o += 3
+    return bytes(out)
+
+
+def write_png(path, rgb):
+    """Encode RGB bytes as a PNG (8-bit, colour type 2)."""
+    raw = bytearray()
+    stride = W * 3
+    for y in range(H):
+        raw.append(0)  # filter: none
+        raw += rgb[y * stride:(y + 1) * stride]
+    comp = zlib.compress(bytes(raw), 9)
+
+    def chunk(kind, data):
+        c = struct.pack(">I", len(data)) + kind + data
+        return c + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+
+    ihdr = struct.pack(">IIBBBBB", W, H, 8, 2, 0, 0, 0)
+    png = (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr)
+           + chunk(b"IDAT", comp) + chunk(b"IEND", b""))
+    with open(path, "wb") as f:
+        f.write(png)
+    return len(png)
 
 
 def main():
-    out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
+    out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR") or "/output"
     os.makedirs(out_dir, exist_ok=True)
-    png = render_png(build_page())
-    path = os.path.join(out_dir, "entry.png")
-    with open(path, "wb") as handle:
-        handle.write(png)
+    sh = Sheet()
+    build_page(sh)
+    n = write_png(os.path.join(out_dir, "entry.png"), shrink(sh))
+    print("wrote %d bytes to %s" % (n, os.path.join(out_dir, "entry.png")))
 
 
 if __name__ == "__main__":
