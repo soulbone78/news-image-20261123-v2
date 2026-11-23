@@ -3,8 +3,10 @@
 
 A one-page newspaper front page drawn entirely in code for the
 make.fun news-image-20261123 competition. Thirty stories from one
-day of war, climate failure and record sport: a large lead, five
-medium stories, twenty-one small stories and a ticker of briefs.
+day of war, a rescue in Dymer and a drawn Test in Wellington:
+a large lead, five medium stories, twenty-one small stories and
+a ticker of briefs. Evening refresh: the news was overhauled
+after blind round 1 with the day's latest developments.
 
 Writes a 1024x1024 PNG to $MAKEFUN_OUTPUT_DIR/entry.png (or
 /output/entry.png when the variable is unset). Python standard
@@ -548,55 +550,58 @@ def art_cricket(sh, x, y, w, h):
 # ---- the page --------------------------------------------------
 
 LEAD_BODY = (
-    "Iranian missiles hit a civilian plant in Sitra, Bahrain, hurt "
-    "two people and set it ablaze, as Tehran says it aimed at US "
-    "bases. Two tankers were hit near Hormuz. Saudi jets down a "
-    "Houthi missile, and the US denies an Iranian claim it hit a US jet."
+    "Bahrain demands Iran pay full compensation for the Sitra "
+    "strike and urges UN action, as Houthis claim a hit on Saudi "
+    "Arabia's Rabigh refinery. Two tankers burn near Hormuz, and "
+    "Trump warns of new US strikes in 2027 if no deal is reached."
 )
 COP_BODY = (
-    "The UN climate summit in Antalya ends in failure as the EU "
-    "rejects a final text with no mention of fossil fuels."
+    "The UN climate summit in Antalya fails as the EU rejects "
+    "a final text with no fossil fuels and no new money."
 )
 KYIV_BODY = (
-    "A Russian drone hits a five-storey home near Kyiv and part of "
-    "it falls in; nine are safe, fourteen feared trapped."
+    "A boy of seven is pulled alive after 14 hours under a flat "
+    "block in Dymer; a woman of 79 is also rescued, as the toll "
+    "hits 11."
 )
 NATO_BODY = "Allies meet in Brussels after Russian missiles and a drone cross into Poland."
 NEPAL_BODY = "Nepal PM Balendra Shah holds talks with PM Narendra Modi in Delhi on a state visit."
-CRICKET_BODY = "India declare on 720 for nine in Wellington, the best in their Test history."
+CRICKET_BODY = "Mitchell and Phillips bat 43 overs as New Zealand hold on for a draw."
 
 # ---- small stories: 21 in a 3 x 7 grid ------------------------
 # Each is (headline, body): the headline fits one line of Lemon
 # Milk Bold at cap 10 in 314 px, the body two lines of Creato
 # Regular at cap 10 (both measured, not guessed). All 21 are real
-# news of Monday 23 November 2026, researched for this revision:
-# the first 18 are new, the last 3 are the old ticker briefs
-# promoted to full stories. No detail is used that could not be
-# verified; where a figure was unconfirmed it was left out.
+# news of Monday 23 November 2026, researched for this evening
+# overhaul: 9 are fresh Monday stories, 12 are kept from the
+# morning edition with the day's latest figures. No detail is
+# used that could not be verified; where a figure was unconfirmed
+# it was left out.
 SMALL_STORIES = [
     # row 1
     ("DEMOCRATS WIN BIG HOUSE MAJORITY",
-     "Democrats clinch at least 258 House seats, their largest "
-     "majority since 1992."),
+     "Foxx concedes after a recount confirms Hubbard's 330-vote "
+     "win; Democrats hold 258 seats."),
     ("WALL STREET FUTURES REBOUND",
      "Dow futures jump 798 points as stocks rebound after the "
      "worst week in six years."),
-    ("INDIA, CHINA OPEN BORDER TALKS",
-     "Commanders meet in Arunachal Pradesh for 10 days of talks "
-     "to ease border tensions."),
+    ("BURNHAM HAILS LANDMARK EU DEAL",
+     "The PM tells MPs the 17 billion pound deal is the biggest "
+     "growth measure of this parliament."),
     # row 2
-    ("KOSPI PLUNGES AS SEOUL STEPS IN",
-     "South Korea's main index falls as much as 5.8% before "
-     "officials pledge market stabilisation funds."),
+    ("KOSPI PLUNGES, SIDECAR TRIPS AGAIN",
+     "Seoul's index falls as much as 5.8% intraday and closes "
+     "down 3.31%; a 10 trillion won fund is readied."),
     ("ANTHROPIC SHARES FALL AFTER IPO",
      "Shares slide after a record 81.3 billion dollar listing "
      "briefly minted decabillionaires."),
-    ("FOUR DEAD IN STRIKE ON HODEIDA",
-     "Houthi media say a Saudi attack on Yemen's key port city "
-     "kills four people and wounds 18."),
+    ("BAHRAIN DEMANDS IRAN PAY UP",
+     "Bahrain urges UN action and full compensation from Iran "
+     "for the strike on a civilian plant in Sitra."),
     # row 3
-    ("M6.5 QUAKE STRIKES VANUATU REGION",
-     "A deep earthquake shakes the Vanuatu region, 598 km down."),
+    ("HOUTHIS CLAIM REFINERY STRIKE",
+     "Houthis say they hit Saudi Arabia's Rabigh refinery; "
+     "damage is unconfirmed, and Trump warns of 2027 strikes."),
     ("NHS LAUNCHES HUGE AI CANCER TRIAL",
      "The world's largest trial asks whether AI can spot breast "
      "cancer earlier, the BBC reports."),
@@ -607,9 +612,9 @@ SMALL_STORIES = [
     ("LIVERPOOL THRASH MAN UTD 4-0",
      "Liverpool rout Manchester United at Anfield in Mauricio "
      "Pochettino's first game as United coach."),
-    ("BARCA FIGHT BACK TO WIN 3-2",
-     "Barcelona come back from two goals down to beat Villarreal "
-     "3-2 and restore their La Liga lead."),
+    ("KENYA, DR CONGO RESTORE TIES",
+     "Ruto and Tshisekedi agree at an Oyo summit to restore "
+     "full diplomatic ties after a three-year rift."),
     ("FIFA TO CONFIRM UK AS 2035 HOST",
      "The UK's four home nations will stage the 2035 Women's "
      "World Cup, the first in Britain since 1966."),
@@ -617,36 +622,37 @@ SMALL_STORIES = [
     ("METS SIGN SKUBAL FOR RECORD 450M",
      "The New York Mets agree a record nine-year, 450 million "
      "dollar deal for pitcher Tarik Skubal."),
-    ("LARKIN TRADED TO CANADIENS",
-     "Detroit trade former captain Dylan Larkin to Montreal in "
-     "a major NHL blockbuster deal."),
-    ("CO-OP LIVE EVACUATED IN GAS SCARE",
-     "The arena is evacuated during a concert after a suspected "
-     "tear gas release."),
+    ("BOLSONARO STILL IN INTENSIVE CARE",
+     "Brazil's jailed ex-president is stable in intensive care "
+     "with a bowel obstruction."),
+    ("IG METALL STRIKES WIDEN",
+     "Germany's biggest union calls 23,000 car and shipyard "
+     "workers out as industrial strikes spread."),
     # row 6
     ("PROTEST AT SEATTLE AIRPORT",
      "Crowds gather after footage shows ICE agents detaining a "
      "father and daughter boarding a flight."),
-    ("SHURI CASTLE HALL REOPENS",
-     "Okinawa's rebuilt Shuri Castle main hall opens to the "
-     "public, seven years after fire destroyed it."),
-    ("COMPASS PLANS NEW YORK LISTING",
-     "The FTSE 100 catering giant plans to move its stock market "
-     "listing to New York, the FT reports."),
-    # row 7: the old ticker briefs, promoted
+    ("IOWA BLAST PUT OFF TO WEDNESDAY",
+     "A controlled detonation of unstable munitions at an Iowa "
+     "Army plant is postponed after a court order."),
+    ("INDIA, CHINA OPEN BORDER TALKS",
+     "Commanders meet in Arunachal Pradesh for 10 days of talks "
+     "to ease border tensions."),
+    # row 7
     ("INDONESIA FIRE: 24 BODY BAGS FOUND",
      "Rescuers recover 24 body bags from the candy factory fire "
      "in Cikande; dozens are still missing."),
-    ("SEOUL MINISTER QUITS IN EXAM ROW",
-     "A South Korean minister resigns after an AI exam row."),
-    ("LISBON MARCHES ON COST OF LIFE",
-     "Marchers take to the streets of Lisbon over the cost "
-     "of living."),
+    ("BITCOIN ETFS SHED 1.79BN IN A WEEK",
+     "Spot bitcoin funds record 1.79 billion dollars in weekly "
+     "outflows as sentiment turns sharply."),
+    ("AUSTRALIA BACK IN WTC TOP TWO",
+     "Australia move up to second in the World Test "
+     "Championship after the Wellington draw."),
 ]
 
 # Ticker briefs: three more items, one line each.
-TICKER_1 = "PAOLO BULGARI DIES AGED 89 - UK DRAWS UP UNIVERSAL CREDIT REFORM"
-TICKER_2 = "CINCINNATI STUN NASHVILLE 1-0 IN MLS PLAYOFFS"
+TICKER_1 = "GOLD REBOUNDS PAST 3,600 - TRUMP HEADS TO LA FOR REAGAN SPEECH"
+TICKER_2 = "CENTRICA BOSS WARNS ON SOARING ENERGY BILLS"
 
 
 def small_box(sh, bx, ry, headline, body):
@@ -670,7 +676,7 @@ def build_page(sh):
     date_size = fit_size("MONDAY 23 NOVEMBER 2026", 1000, 22, "regular")
     centre_lemon(sh, "MONDAY 23 NOVEMBER 2026", 512, 54, date_size,
                  "regular", RED)
-    centre_creato(sh, "THIRTY STORIES FROM A DAY OF WAR, CLIMATE FAILURE AND RECORD SPORT",
+    centre_creato(sh, "THIRTY STORIES FROM A DAY OF WAR, A RESCUE IN DYMER AND A DRAW IN WELLINGTON",
                   512, 82, 11, "regular", GREY)
     sh.rect(12, 100, 1000, 3, INK)
     sh.rect(12, 104, 1000, 1, INK)
@@ -683,13 +689,13 @@ def build_page(sh):
     draw_lemon(sh, "LEAD STORY: THE GULF WAR", tx, 116,
                fit_size("LEAD STORY: THE GULF WAR", 498, 12, "regular"),
                "regular", RED)
-    for i, line in enumerate(("IRAN HITS BAHRAIN", "AS TANKERS BURN IN",
-                              "THE STRAIT")):
+    for i, line in enumerate(("BAHRAIN DEMANDS IRAN", "PAY FOR THE STRIKES",
+                              "AS GULF WAR WIDENS")):
         draw_lemon(sh, line, tx, 134 + i * 25,
                    fit_size(line, 498, 19, "bold"), "bold", INK)
     para_creato(sh, LEAD_BODY, tx, 216, 498, 13, "regular", INK, 17)
     sh.rect(tx, 286, 498, 2, RED)
-    draw_creato(sh, "2 HURT, 2 TANKERS, 1 MISSILE DOWN", tx, 292, 12, "bold", RED)
+    draw_creato(sh, "2 HURT, 2 TANKERS, 1 REFINERY HIT CLAIMED", tx, 292, 12, "bold", RED)
 
     # ---- middle row: climate and Kyiv --------------------------
     sh.frame(10, 316, 498, 160, INK, 2)
@@ -710,8 +716,8 @@ def build_page(sh):
     draw_lemon(sh, "WAR IN UKRAINE: KYIV REGION", 526, 382,
                fit_size("WAR IN UKRAINE: KYIV REGION", 474, 12, "regular"),
                "regular", RED)
-    for i, line in enumerate(("DRONE SMASHES FLAT BLOCK:",
-                              "14 FEARED TRAPPED")):
+    for i, line in enumerate(("BOY, 7, PULLED ALIVE",
+                              "AS DYMER TOLL HITS 11")):
         draw_lemon(sh, line, 526, 400 + i * 21,
                    fit_size(line, 474, 14, "bold"), "bold", INK)
     para_creato(sh, KYIV_BODY, 526, 442, 474, 12, "regular", INK, 16)
@@ -722,8 +728,8 @@ def build_page(sh):
          "CITES INCURSION", NATO_BODY, art_nato),
         (348, "SOUTH ASIA: NEW DELHI", "NEPAL PM MEETS MODI IN",
          "DELHI ON STATE VISIT", NEPAL_BODY, art_delhi),
-        (686, "SPORT: WELLINGTON TEST", "INDIA 720 FOR 9: A",
-         "RECORD TOTAL", CRICKET_BODY, art_cricket),
+        (686, "SPORT: WELLINGTON TEST", "NZ BAT OUT 120 OVERS",
+         "TO DENY INDIA A WIN", CRICKET_BODY, art_cricket),
     ]
     for bx, kicker, head1, head2, body, art in boxes:
         sh.frame(bx, 484, 330, 142, INK, 2)
