@@ -2,11 +2,11 @@
 """The World in One Day -- Monday 23 November 2026.
 
 A one-page newspaper front page drawn entirely in code for the
-make.fun news-image-20261123 competition. Thirty stories from one
-day of war, a rescue in Dymer and a drawn Test in Wellington:
-a large lead, five medium stories, twenty-one small stories and
-a ticker of briefs. Evening refresh: the news was overhauled
-after blind round 1 with the day's latest developments.
+make.fun news-image-20261123 competition. Thirty-nine stories
+from one day of war, a rescue in Dymer and a drawn Test in
+Wellington: a large lead, five medium stories, twenty-seven
+small stories and a ticker of briefs. Denser edition: more
+stories for blind round 3.
 
 Writes a 1024x1024 PNG to $MAKEFUN_OUTPUT_DIR/entry.png (or
 /output/entry.png when the variable is unset). Python standard
@@ -547,6 +547,41 @@ def art_cricket(sh, x, y, w, h):
                 by + 5, 9, "bold", YELLOW)
 
 
+def art_libya(sh, x, y, w, h):
+    """Benghazi: a Russian warship sinking, hit by a sea drone.
+
+    Drawn for a 48 px tall box and scaled to the height given.
+    A grey corvette lists with its bow rising out of a dark sea,
+    an explosion starburst amidships, smoke above, and a small
+    drone in the sky over a thin sandy coast.
+    """
+    s = h / 48.0
+    sh.rect(x, y, w, _sz(12, s), SKY2)
+    sh.rect(x, y + _sz(12, s), w, _sz(4, s), SAND)
+    sh.rect(x, y + _sz(16, s), w, h - _sz(16, s), SEA)
+    # the drone: a small dark cross in the sky
+    dx, dy = x + w - 52, _yo(y, 5, s)
+    sh.rect(dx - 7, dy, 14, _sz(2, s), INK)
+    sh.rect(dx - 2, dy - 2, 4, _sz(6, s), INK)
+    sh.disc(dx - 7, dy, _sz(2, s), INK)
+    sh.disc(dx + 7, dy, _sz(2, s), INK)
+    # the listing corvette: hull tilted, bow (right) rising
+    sh.poly([(x + 46, _yo(y, 34, s)), (x + 276, _yo(y, 20, s)),
+             (x + 276, _yo(y, 28, s)), (x + 46, _yo(y, 42, s))], HULL)
+    sh.poly([(x + 120, _yo(y, 29, s)), (x + 180, _yo(y, 25, s)),
+             (x + 180, _yo(y, 31, s)), (x + 120, _yo(y, 34, s))], DECK)
+    sh.line(x + 210, _yo(y, 24, s), x + 214, _yo(y, 12, s), HULL, 2)
+    # smoke above the blast
+    sh.disc(x + 150, _yo(y, 10, s), _sz(9, s), SMOKE)
+    sh.disc(x + 166, _yo(y, 6, s), _sz(7, s), SMOKE2)
+    sh.disc(x + 138, _yo(y, 16, s), _sz(6, s), SMOKE)
+    # the explosion amidships
+    explosion(sh, x + 158, _yo(y, 28, s), _sz(13, s))
+    # wave lines and the bow wake
+    for wx, wy, wl in [(24, 40, 90), (220, 38, 80), (120, 44, 60)]:
+        sh.rect(x + wx, _yo(y, wy, s), wl, _sz(2, s), WAVE)
+
+
 # ---- the page --------------------------------------------------
 
 LEAD_BODY = (
@@ -561,22 +596,20 @@ COP_BODY = (
 )
 KYIV_BODY = (
     "A boy of seven is pulled alive after 14 hours under a flat "
-    "block in Dymer; a woman of 79 is also rescued, as the toll "
-    "hits 11."
+    "block in Dymer; a woman of 79 is also saved."
 )
 NATO_BODY = "Allies meet in Brussels after Russian missiles and a drone cross into Poland."
-NEPAL_BODY = "Nepal PM Balendra Shah holds talks with PM Narendra Modi in Delhi on a state visit."
+LIBYA_BODY = "Zelenskyy says sea drones sank a Russian corvette at Benghazi and hit a cargo ship."
 CRICKET_BODY = "Mitchell and Phillips bat 43 overs as New Zealand hold on for a draw."
 
-# ---- small stories: 21 in a 3 x 7 grid ------------------------
+# ---- small stories: 27 in a 3 x 9 grid ------------------------
 # Each is (headline, body): the headline fits one line of Lemon
 # Milk Bold at cap 10 in 314 px, the body two lines of Creato
-# Regular at cap 10 (both measured, not guessed). All 21 are real
-# news of Monday 23 November 2026, researched for this evening
-# overhaul: 9 are fresh Monday stories, 12 are kept from the
-# morning edition with the day's latest figures. No detail is
-# used that could not be verified; where a figure was unconfirmed
-# it was left out.
+# Regular at cap 10 (both measured, not guessed). All 27 are real
+# news of Monday 23 November 2026, researched for this denser
+# edition: 19 are kept from the evening overhaul, 8 are fresh
+# Monday stories. No detail is used that could not be verified;
+# where a figure was unconfirmed it was left out.
 SMALL_STORIES = [
     # row 1
     ("DEMOCRATS WIN BIG HOUSE MAJORITY",
@@ -595,76 +628,95 @@ SMALL_STORIES = [
     ("ANTHROPIC SHARES FALL AFTER IPO",
      "Shares slide after a record 81.3 billion dollar listing "
      "briefly minted decabillionaires."),
-    ("BAHRAIN DEMANDS IRAN PAY UP",
-     "Bahrain urges UN action and full compensation from Iran "
-     "for the strike on a civilian plant in Sitra."),
+    ("BEPICOLOMBO ENTERS MERCURY ORBIT",
+     "The European-Japanese probe reaches Mercury after eight "
+     "years in space; a glitch is under study."),
     # row 3
-    ("HOUTHIS CLAIM REFINERY STRIKE",
-     "Houthis say they hit Saudi Arabia's Rabigh refinery; "
-     "damage is unconfirmed, and Trump warns of 2027 strikes."),
     ("NHS LAUNCHES HUGE AI CANCER TRIAL",
      "The world's largest trial asks whether AI can spot breast "
      "cancer earlier, the BBC reports."),
     ("49ERS TROUNCE VIKINGS 35-10",
      "San Francisco dominate Minnesota 35-10 in Mexico City; "
      "the Chiefs and Bills also win."),
-    # row 4
     ("LIVERPOOL THRASH MAN UTD 4-0",
      "Liverpool rout Manchester United at Anfield in Mauricio "
      "Pochettino's first game as United coach."),
+    # row 4
     ("KENYA, DR CONGO RESTORE TIES",
      "Ruto and Tshisekedi agree at an Oyo summit to restore "
      "full diplomatic ties after a three-year rift."),
     ("FIFA TO CONFIRM UK AS 2035 HOST",
      "The UK's four home nations will stage the 2035 Women's "
      "World Cup, the first in Britain since 1966."),
-    # row 5
     ("METS SIGN SKUBAL FOR RECORD 450M",
      "The New York Mets agree a record nine-year, 450 million "
      "dollar deal for pitcher Tarik Skubal."),
+    # row 5
     ("BOLSONARO STILL IN INTENSIVE CARE",
      "Brazil's jailed ex-president is stable in intensive care "
      "with a bowel obstruction."),
     ("IG METALL STRIKES WIDEN",
      "Germany's biggest union calls 23,000 car and shipyard "
      "workers out as industrial strikes spread."),
-    # row 6
     ("PROTEST AT SEATTLE AIRPORT",
      "Crowds gather after footage shows ICE agents detaining a "
      "father and daughter boarding a flight."),
+    # row 6
     ("IOWA BLAST PUT OFF TO WEDNESDAY",
      "A controlled detonation of unstable munitions at an Iowa "
      "Army plant is postponed after a court order."),
     ("INDIA, CHINA OPEN BORDER TALKS",
      "Commanders meet in Arunachal Pradesh for 10 days of talks "
      "to ease border tensions."),
-    # row 7
     ("INDONESIA FIRE: 24 BODY BAGS FOUND",
      "Rescuers recover 24 body bags from the candy factory fire "
      "in Cikande; dozens are still missing."),
+    # row 7
     ("BITCOIN ETFS SHED 1.79BN IN A WEEK",
      "Spot bitcoin funds record 1.79 billion dollars in weekly "
      "outflows as sentiment turns sharply."),
     ("AUSTRALIA BACK IN WTC TOP TWO",
      "Australia move up to second in the World Test "
      "Championship after the Wellington draw."),
+    ("NEPAL PM MEETS MODI IN DELHI",
+     "Nepal PM Balendra Shah holds talks with PM Modi in Delhi "
+     "on a state visit."),
+    # row 8
+    ("DRONES HIT COLOMBIA POLICE BASE",
+     "Explosive drones hit a police base in Cucuta, injuring "
+     "civilians and damaging 60 homes."),
+    ("EU AND INDONESIA SIGN TRADE DEAL",
+     "After a decade of talks, the EU and Indonesia sign a pact "
+     "scrapping most tariffs on goods."),
+    ("EURO INFLATION RISES TO 4.0%",
+     "Euro area inflation climbs to 4.0% in new Eurostat "
+     "figures, adding pressure on rates."),
+    # row 9
+    ("DRONES HIT UN SITE IN KHARTOUM",
+     "Drone strikes hit homes and a United Nations building in "
+     "Sudan's capital."),
+    ("M6.5 QUAKE STRIKES VANUATU REGION",
+     "A deep earthquake shakes the Vanuatu region, 598 km down."),
+    ("US LEAD OVER CHINA NARROWS",
+     "America's edge over China in Asia falls to its lowest "
+     "since 2018, the Lowy Index finds."),
 ]
 
-# Ticker briefs: three more items, one line each.
-TICKER_1 = "GOLD REBOUNDS PAST 3,600 - TRUMP HEADS TO LA FOR REAGAN SPEECH"
-TICKER_2 = "CENTRICA BOSS WARNS ON SOARING ENERGY BILLS"
+# Ticker briefs: six more items, three per line.
+TICKER_1 = "GOLD REBOUNDS PAST 3,600 - AVENGERS TRAILER OUT - COWBOYS SCORE 51"
+TICKER_2 = "TRUMP HEADS TO LA FOR REAGAN SPEECH - CENTRICA BOSS WARNS ON ENERGY BILLS - PANAMA MINE TALKS"
 
 
 def small_box(sh, bx, ry, headline, body):
     """One small story in the grid: a Lemon Milk headline over
     Creato body copy, 314 px of text width, at most 2 body lines
     so nothing can spill into the row below."""
-    draw_lemon(sh, headline, bx + 8, ry + 4,
+    draw_lemon(sh, headline, bx + 8, ry + 3,
                fit_size(headline, 314, 10, "bold"), "bold", INK)
-    y = ry + 19
+    y = ry + 16
     for ln in wrap_creato(body, 314, 10)[:2]:
         draw_creato(sh, ln, bx + 8, y, 10, "regular", INK)
-        y += 13
+        y += 12
 
 
 def build_page(sh):
@@ -676,79 +728,79 @@ def build_page(sh):
     date_size = fit_size("MONDAY 23 NOVEMBER 2026", 1000, 22, "regular")
     centre_lemon(sh, "MONDAY 23 NOVEMBER 2026", 512, 54, date_size,
                  "regular", RED)
-    centre_creato(sh, "THIRTY STORIES FROM A DAY OF WAR, A RESCUE IN DYMER AND A DRAW IN WELLINGTON",
+    centre_creato(sh, "THIRTY-NINE STORIES FROM A DAY OF WAR, A RESCUE IN DYMER AND A DRAW IN WELLINGTON",
                   512, 82, 11, "regular", GREY)
     sh.rect(12, 100, 1000, 3, INK)
     sh.rect(12, 104, 1000, 1, INK)
 
     # ---- lead story --------------------------------------------
-    sh.frame(10, 108, 1004, 200, INK, 2)
-    art_gulf(sh, 12, 110, 480, 196)
-    sh.rect(492, 110, 2, 196, INK)
+    sh.frame(10, 108, 1004, 180, INK, 2)
+    art_gulf(sh, 12, 110, 480, 176)
+    sh.rect(492, 110, 2, 176, INK)
     tx = 504
-    draw_lemon(sh, "LEAD STORY: THE GULF WAR", tx, 116,
+    draw_lemon(sh, "LEAD STORY: THE GULF WAR", tx, 114,
                fit_size("LEAD STORY: THE GULF WAR", 498, 12, "regular"),
                "regular", RED)
     for i, line in enumerate(("BAHRAIN DEMANDS IRAN", "PAY FOR THE STRIKES",
                               "AS GULF WAR WIDENS")):
-        draw_lemon(sh, line, tx, 134 + i * 25,
+        draw_lemon(sh, line, tx, 130 + i * 22,
                    fit_size(line, 498, 19, "bold"), "bold", INK)
-    para_creato(sh, LEAD_BODY, tx, 216, 498, 13, "regular", INK, 17)
-    sh.rect(tx, 286, 498, 2, RED)
-    draw_creato(sh, "2 HURT, 2 TANKERS, 1 REFINERY HIT CLAIMED", tx, 292, 12, "bold", RED)
+    para_creato(sh, LEAD_BODY, tx, 200, 498, 12, "regular", INK, 15)
+    sh.rect(tx, 264, 498, 2, RED)
+    draw_creato(sh, "2 HURT, 2 TANKERS, 1 REFINERY HIT CLAIMED", tx, 268, 12, "bold", RED)
 
     # ---- middle row: climate and Kyiv --------------------------
-    sh.frame(10, 316, 498, 160, INK, 2)
-    art_climate(sh, 12, 318, 494, 56)
-    sh.rect(12, 374, 494, 2, INK)
-    draw_lemon(sh, "CLIMATE: ANTALYA, TURKEY", 20, 382,
+    sh.frame(10, 296, 498, 155, INK, 2)
+    art_climate(sh, 12, 298, 494, 52)
+    sh.rect(12, 350, 494, 2, INK)
+    draw_lemon(sh, "CLIMATE: ANTALYA, TURKEY", 20, 354,
                fit_size("CLIMATE: ANTALYA, TURKEY", 474, 12, "regular"),
                "regular", RED)
     for i, line in enumerate(("COP31 COLLAPSES WITH NO",
                               "DEAL ON FOSSIL FUELS")):
-        draw_lemon(sh, line, 20, 400 + i * 21,
+        draw_lemon(sh, line, 20, 372 + i * 20,
                    fit_size(line, 474, 14, "bold"), "bold", INK)
-    para_creato(sh, COP_BODY, 20, 442, 474, 12, "regular", INK, 16)
+    para_creato(sh, COP_BODY, 20, 414, 474, 12, "regular", INK, 15)
 
-    sh.frame(516, 316, 498, 160, INK, 2)
-    art_kyiv(sh, 518, 318, 494, 56)
-    sh.rect(518, 374, 494, 2, INK)
-    draw_lemon(sh, "WAR IN UKRAINE: KYIV REGION", 526, 382,
+    sh.frame(516, 296, 498, 155, INK, 2)
+    art_kyiv(sh, 518, 298, 494, 52)
+    sh.rect(518, 350, 494, 2, INK)
+    draw_lemon(sh, "WAR IN UKRAINE: KYIV REGION", 526, 354,
                fit_size("WAR IN UKRAINE: KYIV REGION", 474, 12, "regular"),
                "regular", RED)
     for i, line in enumerate(("BOY, 7, PULLED ALIVE",
                               "AS DYMER TOLL HITS 11")):
-        draw_lemon(sh, line, 526, 400 + i * 21,
+        draw_lemon(sh, line, 526, 372 + i * 20,
                    fit_size(line, 474, 14, "bold"), "bold", INK)
-    para_creato(sh, KYIV_BODY, 526, 442, 474, 12, "regular", INK, 16)
+    para_creato(sh, KYIV_BODY, 526, 414, 474, 12, "regular", INK, 15)
 
-    # ---- bottom row: NATO, Delhi, cricket ----------------------
+    # ---- bottom row: NATO, Libya, cricket ----------------------
     boxes = [
         (10, "EUROPE: BRUSSELS", "NATO MEETS AS POLAND",
          "CITES INCURSION", NATO_BODY, art_nato),
-        (348, "SOUTH ASIA: NEW DELHI", "NEPAL PM MEETS MODI IN",
-         "DELHI ON STATE VISIT", NEPAL_BODY, art_delhi),
+        (348, "WAR AT SEA: LIBYA", "UKRAINE SINKS RUSSIAN WARSHIP",
+         "OFF LIBYA, KYIV SAYS", LIBYA_BODY, art_libya),
         (686, "SPORT: WELLINGTON TEST", "NZ BAT OUT 120 OVERS",
          "TO DENY INDIA A WIN", CRICKET_BODY, art_cricket),
     ]
     for bx, kicker, head1, head2, body, art in boxes:
-        sh.frame(bx, 484, 330, 142, INK, 2)
-        art(sh, bx + 2, 486, 326, 48)
-        sh.rect(bx + 2, 534, 326, 2, INK)
-        draw_lemon(sh, kicker, bx + 10, 542,
+        sh.frame(bx, 459, 330, 135, INK, 2)
+        art(sh, bx + 2, 461, 326, 44)
+        sh.rect(bx + 2, 505, 326, 2, INK)
+        draw_lemon(sh, kicker, bx + 10, 511,
                    fit_size(kicker, 314, 12, "regular"), "regular", RED)
-        draw_lemon(sh, head1, bx + 10, 560,
+        draw_lemon(sh, head1, bx + 10, 529,
                    fit_size(head1, 314, 11, "bold"), "bold", INK)
-        draw_lemon(sh, head2, bx + 10, 578,
+        draw_lemon(sh, head2, bx + 10, 547,
                    fit_size(head2, 314, 11, "bold"), "bold", INK)
-        para_creato(sh, body, bx + 10, 596, 314, 11, "regular", INK, 14)
+        para_creato(sh, body, bx + 10, 565, 314, 11, "regular", INK, 14)
 
-    # ---- small stories: 21 in a 3 x 7 grid --------------------
+    # ---- small stories: 27 in a 3 x 9 grid --------------------
     # One outer frame, 1 px rules between rows and columns, and
     # the stories in reading order (row-major).
-    grid_y, grid_h = 634, 334
+    grid_y, grid_h = 602, 367
     sh.frame(10, grid_y, 1006, grid_h, INK, 1)
-    rows = [grid_y + round(i * grid_h / 7) for i in range(8)]
+    rows = [grid_y + round(i * grid_h / 9) for i in range(10)]
     for ry in rows[1:-1]:
         sh.rect(11, ry, 1004, 1, INK)
     for vx in (344, 682):
@@ -758,17 +810,17 @@ def build_page(sh):
         small_box(sh, 10 + col * 338, rows[row], headline, body)
 
     # ---- ticker and footer -------------------------------------
-    sh.frame(10, 974, 1004, 32, INK, 2)
+    sh.frame(10, 976, 1004, 32, INK, 2)
     lead = "ALSO TODAY:"
-    draw_lemon(sh, lead, 20, 980, 11, "bold", INK)
+    draw_lemon(sh, lead, 20, 981, 11, "bold", INK)
     # A full 12 px gap after the Lemon Milk lead-in: the font's
     # own space advance (under 5 px at this size) reads as no
     # gap at all next to the Creato text that follows.
     rest_x = 20 + lemon_w(lead, 11, "bold") + 12
-    draw_creato(sh, TICKER_1, rest_x, 980, 10, "regular", INK)
+    draw_creato(sh, TICKER_1, rest_x, 981, 10, "regular", INK)
     draw_creato(sh, TICKER_2, 20, 993, 10, "regular", INK)
     centre_creato(sh, "DRAWN IN CODE - NO PHOTO - SOURCES: REUTERS, AP, CNBC - "
-                      "23 NOVEMBER 2026", 512, 1009, 8, "regular", GREY)
+                      "23 NOVEMBER 2026", 512, 1010, 8, "regular", GREY)
 
 
 # ---- output ----------------------------------------------------
