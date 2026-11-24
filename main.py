@@ -5,8 +5,9 @@ A one-page newspaper front page drawn entirely in code for the
 make.fun news-image-20261123 competition. Thirty-nine stories
 from one day of war, a rescue in Dymer and a drawn Test in
 Wellington: a large lead, five medium stories, twenty-seven
-small stories and a ticker of briefs. Denser edition: more
-stories for blind round 3.
+small stories and a ticker of briefs. Illustrated edition: every
+small story carries a picture, and every story carries more
+detail — for blind round 3.
 
 Writes a 1024x1024 PNG to $MAKEFUN_OUTPUT_DIR/entry.png (or
 /output/entry.png when the variable is unset). Python standard
@@ -80,6 +81,9 @@ SAFFRON = (255, 153, 51)
 IGREEN = (19, 136, 8)
 BOARD = (10, 10, 10)
 YELLOW = (255, 210, 40)
+PINK = (240, 150, 180)    # NHS ribbon
+BROWN = (140, 90, 50)     # American football, gavel wood
+BTC = (247, 147, 26)      # bitcoin orange
 
 # ---- canvas ----------------------------------------------------
 # All drawing calls take final-pixel coordinates; the sheet scales
@@ -582,124 +586,448 @@ def art_libya(sh, x, y, w, h):
         sh.rect(x + wx, _yo(y, wy, s), wl, _sz(2, s), WAVE)
 
 
+# ---- grid icons ------------------------------------------------
+# One 30x30 illustrated panel per small story, in SMALL_STORIES
+# order. Each takes the sheet and the panel's top-left corner and
+# paints the whole box, starting with its own background colour.
+# All coordinates below are relative to (x, y). Flat and simple
+# like the big art: a few bold shapes, strong colour contrast,
+# so each one still reads as a picture at full-page size.
+
+def icon_01(sh, x, y):
+    """The Capitol dome: Democrats win the House majority."""
+    sh.rect(x, y, 30, 30, SKY2)
+    sh.disc(x + 15, y + 13, 7, WHITE)
+    sh.rect(x + 9, y + 13, 12, 9, WHITE)
+    sh.rect(x + 6, y + 22, 18, 3, GREY)
+    sh.line(x + 15, y + 3, x + 15, y + 7, INK, 1)
+    sh.rect(x + 15, y + 3, 5, 3, RED)
+
+
+def icon_02(sh, x, y):
+    """A rising chart: Wall Street futures rebound."""
+    sh.rect(x, y, 30, 30, BOARD)
+    sh.line(x + 4, y + 22, x + 11, y + 16, GREEN, 2)
+    sh.line(x + 11, y + 16, x + 18, y + 18, GREEN, 2)
+    sh.line(x + 18, y + 18, x + 26, y + 8, GREEN, 2)
+    sh.poly([(x + 26, y + 8), (x + 21, y + 8), (x + 26, y + 13)], GREEN)
+
+
+def icon_03(sh, x, y):
+    """The Union Jack: Burnham hails the EU deal."""
+    sh.rect(x, y, 30, 30, NAVY)
+    sh.line(x, y, x + 30, y + 30, WHITE, 3)
+    sh.line(x + 30, y, x, y + 30, WHITE, 3)
+    sh.rect(x + 13, y, 4, 30, WHITE)
+    sh.rect(x, y + 13, 30, 4, WHITE)
+    sh.rect(x + 14, y, 2, 30, RED)
+    sh.rect(x, y + 14, 30, 2, RED)
+
+
+def icon_04(sh, x, y):
+    """A falling chart: KOSPI plunges."""
+    sh.rect(x, y, 30, 30, BOARD)
+    sh.line(x + 4, y + 8, x + 11, y + 14, RED, 2)
+    sh.line(x + 11, y + 14, x + 18, y + 12, RED, 2)
+    sh.line(x + 18, y + 12, x + 26, y + 22, RED, 2)
+    sh.poly([(x + 26, y + 22), (x + 26, y + 17), (x + 21, y + 22)], RED)
+
+
+def icon_05(sh, x, y):
+    """A microchip: Anthropic shares fall after the IPO."""
+    sh.rect(x, y, 30, 30, SKY2)
+    sh.rect(x + 8, y + 8, 14, 14, INK)
+    sh.rect(x + 11, y + 11, 8, 8, DECK)
+    for px in (11, 14, 17):
+        sh.rect(x + px, y + 5, 2, 3, INK)
+        sh.rect(x + px, y + 22, 2, 3, INK)
+    for py in (11, 14, 17):
+        sh.rect(x + 5, y + py, 3, 2, INK)
+        sh.rect(x + 22, y + py, 3, 2, INK)
+
+
+def icon_06(sh, x, y):
+    """A probe over Mercury: BepiColombo enters orbit."""
+    sh.rect(x, y, 30, 30, BOARD)
+    sh.disc(x + 10, y + 20, 6, MOUNT)
+    sh.disc(x + 8, y + 18, 1, SMOKE2)
+    sh.disc(x + 12, y + 22, 2, SMOKE2)
+    sh.rect(x + 19, y + 7, 6, 5, DECK)
+    sh.rect(x + 13, y + 8, 5, 3, NAVY)
+    sh.rect(x + 26, y + 8, 3, 3, NAVY)
+    sh.disc(x + 25, y + 22, 2, YELLOW)
+
+
+def icon_07(sh, x, y):
+    """A pink ribbon: the NHS AI cancer trial."""
+    sh.rect(x, y, 30, 30, WHITE)
+    sh.poly([(x + 15, y + 4), (x + 20, y + 10), (x + 17, y + 14),
+             (x + 20, y + 24), (x + 15, y + 20), (x + 10, y + 24),
+             (x + 13, y + 14), (x + 10, y + 10)], PINK)
+
+
+def icon_08(sh, x, y):
+    """An American football: 49ers trounce the Vikings."""
+    sh.rect(x, y, 30, 30, GREEN)
+    sh.rect(x, y + 4, 30, 1, WHITE)
+    sh.rect(x, y + 25, 30, 1, WHITE)
+    sh.poly([(x + 6, y + 15), (x + 15, y + 8), (x + 24, y + 15),
+             (x + 15, y + 22)], BROWN)
+    sh.line(x + 12, y + 15, x + 18, y + 15, WHITE, 1)
+    for lx in (13, 15, 17):
+        sh.rect(x + lx, y + 13, 1, 2, WHITE)
+
+
+def icon_09(sh, x, y):
+    """A soccer ball: Liverpool thrash Man Utd."""
+    sh.rect(x, y, 30, 30, GREEN)
+    sh.disc(x + 15, y + 15, 9, WHITE)
+    sh.disc(x + 15, y + 15, 3, INK)
+    sh.disc(x + 9, y + 10, 2, INK)
+    sh.disc(x + 21, y + 10, 2, INK)
+    sh.disc(x + 15, y + 23, 2, INK)
+
+
+def icon_10(sh, x, y):
+    """Kenya and DR Congo flags: the two restore ties."""
+    sh.rect(x, y, 30, 30, SKY2)
+    sh.rect(x + 3, y + 8, 11, 5, INK)
+    sh.rect(x + 3, y + 13, 11, 4, RED)
+    sh.rect(x + 3, y + 17, 11, 5, GREEN2)
+    sh.rect(x + 16, y + 8, 11, 14, GLOBE)
+    sh.line(x + 16, y + 22, x + 27, y + 8, RED, 3)
+    sh.disc(x + 19, y + 11, 2, YELLOW)
+
+
+def icon_11(sh, x, y):
+    """A gold cup: FIFA to confirm the UK as 2035 host."""
+    sh.rect(x, y, 30, 30, SKY2)
+    sh.rect(x + 11, y + 6, 8, 10, YELLOW)
+    sh.rect(x + 8, y + 8, 3, 4, YELLOW)
+    sh.rect(x + 19, y + 8, 3, 4, YELLOW)
+    sh.rect(x + 13, y + 16, 4, 4, YELLOW)
+    sh.rect(x + 10, y + 20, 10, 3, YELLOW)
+
+
+def icon_12(sh, x, y):
+    """A baseball: the Mets sign Skubal."""
+    sh.rect(x, y, 30, 30, GREEN)
+    sh.disc(x + 15, y + 15, 9, WHITE)
+    sh.line(x + 8, y + 10, x + 13, y + 20, RED, 1)
+    sh.line(x + 22, y + 10, x + 17, y + 20, RED, 1)
+
+
+def icon_13(sh, x, y):
+    """A red cross: Bolsonaro still in intensive care."""
+    sh.rect(x, y, 30, 30, WHITE)
+    sh.rect(x + 12, y + 5, 6, 20, RED)
+    sh.rect(x + 5, y + 12, 20, 6, RED)
+
+
+def icon_14(sh, x, y):
+    """A gear: IG Metall strikes widen."""
+    sh.rect(x, y, 30, 30, SKY2)
+    sh.disc(x + 15, y + 15, 10, GREY)
+    for tx, ty in [(13, 3), (13, 23), (3, 13), (23, 13),
+                   (7, 7), (19, 7), (7, 19), (19, 19)]:
+        sh.rect(x + tx, y + ty, 4, 4, GREY)
+    sh.disc(x + 15, y + 15, 4, SKY2)
+
+
+def icon_15(sh, x, y):
+    """A megaphone: protest at Seattle airport."""
+    sh.rect(x, y, 30, 30, SKY2)
+    sh.poly([(x + 8, y + 12), (x + 22, y + 7), (x + 22, y + 23),
+             (x + 8, y + 18)], RED)
+    sh.rect(x + 8, y + 18, 4, 5, INK)
+    sh.line(x + 24, y + 10, x + 26, y + 12, INK, 1)
+    sh.line(x + 24, y + 20, x + 26, y + 18, INK, 1)
+
+
+def icon_16(sh, x, y):
+    """A courthouse: the Iowa blast is put off."""
+    sh.rect(x, y, 30, 30, SKY2)
+    sh.poly([(x + 5, y + 10), (x + 15, y + 4), (x + 25, y + 10)], GREY)
+    for cx in (8, 13, 18):
+        sh.rect(x + cx, y + 12, 3, 12, WHITE)
+    sh.rect(x + 5, y + 24, 20, 3, GREY)
+
+
+def icon_17(sh, x, y):
+    """India and China flags: border talks open."""
+    sh.rect(x, y, 30, 30, SKY2)
+    sh.rect(x + 3, y + 8, 11, 5, SAFFRON)
+    sh.rect(x + 3, y + 13, 11, 4, WHITE)
+    sh.rect(x + 3, y + 17, 11, 5, IGREEN)
+    sh.disc(x + 8, y + 15, 2, NAVY)
+    sh.rect(x + 16, y + 8, 11, 14, RED)
+    sh.disc(x + 19, y + 11, 2, YELLOW)
+    sh.disc(x + 22, y + 10, 1, YELLOW)
+    sh.disc(x + 23, y + 13, 1, YELLOW)
+
+
+def icon_18(sh, x, y):
+    """A burning factory: the Indonesia fire."""
+    sh.rect(x, y, 30, 30, BOARD)
+    sh.rect(x + 5, y + 18, 20, 9, GREY)
+    sh.rect(x + 8, y + 12, 4, 7, GREY)
+    sh.poly([(x + 15, y + 4), (x + 20, y + 12), (x + 21, y + 18),
+             (x + 18, y + 22), (x + 12, y + 22), (x + 9, y + 18),
+             (x + 10, y + 12)], FIRE1)
+    sh.poly([(x + 15, y + 9), (x + 18, y + 14), (x + 18, y + 19),
+             (x + 12, y + 19), (x + 12, y + 14)], FIRE2)
+    sh.disc(x + 15, y + 17, 2, FIRE3)
+    sh.disc(x + 10, y + 6, 3, SMOKE)
+    sh.disc(x + 21, y + 5, 2, SMOKE)
+
+
+def icon_19(sh, x, y):
+    """A bitcoin: ETFs shed 1.79 billion dollars in a week."""
+    sh.rect(x, y, 30, 30, SKY2)
+    sh.disc(x + 15, y + 15, 11, BTC)
+    draw_creato(sh, "B", x + 11, y + 9, 11, "bold", WHITE)
+
+
+def icon_20(sh, x, y):
+    """Cricket stumps: Australia back in the WTC top two."""
+    sh.rect(x, y, 30, 30, GREEN)
+    for sx in (11, 14, 17):
+        sh.rect(x + sx, y + 8, 2, 12, WHITE)
+        sh.rect(x + sx, y + 6, 2, 1, WHITE)
+    sh.disc(x + 23, y + 22, 3, RED)
+
+
+def icon_21(sh, x, y):
+    """Nepal and India flags: the Nepal PM meets Modi."""
+    sh.rect(x, y, 30, 30, SKY2)
+    sh.poly([(x + 4, y + 6), (x + 16, y + 11), (x + 4, y + 16)], RED)
+    sh.poly([(x + 4, y + 16), (x + 13, y + 20), (x + 4, y + 24)], RED)
+    sh.rect(x + 18, y + 8, 9, 5, SAFFRON)
+    sh.rect(x + 18, y + 13, 9, 4, WHITE)
+    sh.rect(x + 18, y + 17, 9, 5, IGREEN)
+
+
+def icon_22(sh, x, y):
+    """A drone over an explosion: drones hit a Colombia base."""
+    sh.rect(x, y, 30, 30, SKY2)
+    sh.rect(x + 12, y + 9, 6, 4, INK)
+    sh.line(x + 12, y + 11, x + 8, y + 8, INK, 1)
+    sh.line(x + 18, y + 11, x + 22, y + 8, INK, 1)
+    sh.line(x + 12, y + 11, x + 8, y + 14, INK, 1)
+    sh.line(x + 18, y + 11, x + 22, y + 14, INK, 1)
+    for rx, ry in [(8, 8), (22, 8), (8, 14), (22, 14)]:
+        sh.disc(x + rx, y + ry, 2, INK)
+    explosion(sh, x + 15, y + 24, 5)
+
+
+def icon_23(sh, x, y):
+    """EU and Indonesia flags: the trade deal is signed."""
+    sh.rect(x, y, 30, 30, SKY2)
+    sh.rect(x + 3, y + 8, 11, 14, NAVY)
+    for sx, sy in [(8, 10), (6, 14), (11, 14), (7, 18), (10, 18)]:
+        sh.disc(x + sx, y + sy, 1, YELLOW)
+    sh.rect(x + 16, y + 8, 11, 7, RED)
+    sh.rect(x + 16, y + 15, 11, 7, WHITE)
+
+
+def icon_24(sh, x, y):
+    """A coin and a rising arrow: euro inflation hits 4.0%."""
+    sh.rect(x, y, 30, 30, SKY2)
+    sh.disc(x + 15, y + 17, 9, SUN)
+    draw_creato(sh, "%", x + 11, y + 13, 8, "bold", INK)
+    sh.poly([(x + 15, y + 2), (x + 19, y + 8), (x + 11, y + 8)], RED)
+
+
+def icon_25(sh, x, y):
+    """A UN building under a drone: Khartoum."""
+    sh.rect(x, y, 30, 30, SKY2)
+    sh.rect(x + 6, y + 12, 18, 14, TAN)
+    sh.rect(x + 9, y + 16, 4, 4, WINDOW)
+    sh.rect(x + 17, y + 16, 4, 4, WINDOW)
+    sh.line(x + 21, y + 4, x + 21, y + 12, INK, 1)
+    sh.rect(x + 21, y + 4, 7, 4, GLOBE)
+    sh.rect(x + 4, y + 6, 6, 2, INK)
+    sh.rect(x + 6, y + 4, 2, 6, INK)
+
+
+def icon_26(sh, x, y):
+    """A seismograph trace: M6.5 quake in the Vanuatu region."""
+    sh.rect(x, y, 30, 30, SKY2)
+    sh.rect(x + 4, y + 8, 22, 14, WHITE)
+    sh.line(x + 5, y + 15, x + 9, y + 10, RED, 1)
+    sh.line(x + 9, y + 10, x + 12, y + 19, RED, 1)
+    sh.line(x + 12, y + 19, x + 16, y + 11, RED, 1)
+    sh.line(x + 16, y + 11, x + 20, y + 18, RED, 1)
+    sh.line(x + 20, y + 18, x + 24, y + 14, RED, 1)
+
+
+def icon_27(sh, x, y):
+    """Two bars, nearly level: the US lead over China narrows."""
+    sh.rect(x, y, 30, 30, SKY2)
+    sh.rect(x + 7, y + 8, 7, 18, NAVY)
+    sh.rect(x + 16, y + 12, 7, 14, RED)
+    sh.rect(x + 4, y + 26, 22, 2, INK)
+
+
 # ---- the page --------------------------------------------------
 
 LEAD_BODY = (
-    "Bahrain demands Iran pay full compensation for the Sitra "
-    "strike and urges UN action, as Houthis claim a hit on Saudi "
-    "Arabia's Rabigh refinery. Two tankers burn near Hormuz, and "
-    "Trump warns of new US strikes in 2027 if no deal is reached."
+    "Bahrain demands Iran pay after a strike on a plant on Sitra "
+    "left two hurt, one critically, and urges UN action. Houthis "
+    "claim a hit on the Rabigh refinery and two tankers burn near "
+    "Hormuz, where UKMTO counts at least 22 shipping attacks "
+    "this month. Trump may strike Iran after the New Year if no "
+    "deal is reached."
 )
 COP_BODY = (
-    "The UN climate summit in Antalya fails as the EU rejects "
-    "a final text with no fossil fuels and no new money."
+    "COP31 collapses in Antalya, the longest on record, as the "
+    "EU rejects a text with no fossil fuels and no 120 billion "
+    "dollar target."
 )
 KYIV_BODY = (
-    "A boy of seven is pulled alive after 14 hours under a flat "
-    "block in Dymer; a woman of 79 is also saved."
+    "Davyd, 7, is pulled alive after 14 hours under a Dymer flat "
+    "block and tells rescuers he is fine; a woman of 79 is also "
+    "saved."
 )
-NATO_BODY = "Allies meet in Brussels after Russian missiles and a drone cross into Poland."
-LIBYA_BODY = "Zelenskyy says sea drones sank a Russian corvette at Benghazi and hit a cargo ship."
-CRICKET_BODY = "Mitchell and Phillips bat 43 overs as New Zealand hold on for a draw."
+NATO_BODY = (
+    "Three Russian Kh-101 missiles crash in Poland; Rutte vows "
+    "to defend every inch."
+)
+LIBYA_BODY = (
+    "Sea drones sank the Merkury at Benghazi, hit the cargo ship "
+    "Angara and downed a Ka-27."
+)
+CRICKET_BODY = (
+    "Mitchell (49 not out) and Phillips (26 not out) bat 43 overs "
+    "as New Zealand reach 239 for 5."
+)
 
 # ---- small stories: 27 in a 3 x 9 grid ------------------------
-# Each is (headline, body): the headline fits one line of Lemon
-# Milk Bold at cap 10 in 314 px, the body two lines of Creato
-# Regular at cap 10 (both measured, not guessed). All 27 are real
-# news of Monday 23 November 2026, researched for this denser
-# edition: 19 are kept from the evening overhaul, 8 are fresh
-# Monday stories. No detail is used that could not be verified;
-# where a figure was unconfirmed it was left out.
+# Each is (headline, body, icon): a 30x30 illustrated icon panel
+# on the left, the headline in one line of Lemon Milk Bold at cap
+# 10 in 284 px, the body in two lines of Creato Regular at cap 10
+# (both measured, not guessed). All 27 are real news of Monday
+# 23 November 2026, researched for this illustrated edition. No
+# detail is used that could not be verified; where a figure was
+# unconfirmed it was left out.
 SMALL_STORIES = [
     # row 1
     ("DEMOCRATS WIN BIG HOUSE MAJORITY",
-     "Foxx concedes after a recount confirms Hubbard's 330-vote "
-     "win; Democrats hold 258 seats."),
+     "Foxx concedes after a recount; Hubbard wins by 330 votes "
+     "and Democrats hold 258 seats.",
+     icon_01),
     ("WALL STREET FUTURES REBOUND",
-     "Dow futures jump 798 points as stocks rebound after the "
-     "worst week in six years."),
+     "Dow futures jump 798 points, Nasdaq climbs 2.75% after "
+     "the worst week in six years.",
+     icon_02),
     ("BURNHAM HAILS LANDMARK EU DEAL",
-     "The PM tells MPs the 17 billion pound deal is the biggest "
-     "growth measure of this parliament."),
+     "The PM tells MPs the 17 billion pound EU deal lets "
+     "100,000 young people work abroad.",
+     icon_03),
     # row 2
     ("KOSPI PLUNGES, SIDECAR TRIPS AGAIN",
-     "Seoul's index falls as much as 5.8% intraday and closes "
-     "down 3.31%; a 10 trillion won fund is readied."),
+     "Seoul's index falls 5.8% intraday and closes down 3.31%; "
+     "a 10 trillion won fund is readied.",
+     icon_04),
     ("ANTHROPIC SHARES FALL AFTER IPO",
-     "Shares slide after a record 81.3 billion dollar listing "
-     "briefly minted decabillionaires."),
+     "Shares slide after a record 81.3 billion dollar listing, "
+     "down 20% from their first trade.",
+     icon_05),
     ("BEPICOLOMBO ENTERS MERCURY ORBIT",
-     "The European-Japanese probe reaches Mercury after eight "
-     "years in space; a glitch is under study."),
+     "The ESA-JAXA probe reaches Mercury after eight years; a "
+     "glitch cut its burn to 77%.",
+     icon_06),
     # row 3
     ("NHS LAUNCHES HUGE AI CANCER TRIAL",
-     "The world's largest trial asks whether AI can spot breast "
-     "cancer earlier, the BBC reports."),
+     "Nearly 700,000 women join the EDITH trial testing "
+     "whether AI spots breast cancer earlier.",
+     icon_07),
     ("49ERS TROUNCE VIKINGS 35-10",
-     "San Francisco dominate Minnesota 35-10 in Mexico City; "
-     "the Chiefs and Bills also win."),
+     "49ers dominate Minnesota 35-10 in Mexico City as Purdy "
+     "throws three touchdowns.",
+     icon_08),
     ("LIVERPOOL THRASH MAN UTD 4-0",
-     "Liverpool rout Manchester United at Anfield in Mauricio "
-     "Pochettino's first game as United coach."),
+     "Liverpool rout ten-man Man Utd at Anfield after Yoro sees "
+     "red in the eighth minute.",
+     icon_09),
     # row 4
     ("KENYA, DR CONGO RESTORE TIES",
-     "Ruto and Tshisekedi agree at an Oyo summit to restore "
-     "full diplomatic ties after a three-year rift."),
+     "Ruto and Tshisekedi agree at Oyo to restore full "
+     "diplomatic ties after a three-year rift.",
+     icon_10),
     ("FIFA TO CONFIRM UK AS 2035 HOST",
-     "The UK's four home nations will stage the 2035 Women's "
-     "World Cup, the first in Britain since 1966."),
+     "UK's four home nations will stage the 2035 Women's World "
+     "Cup, the first since 1966.",
+     icon_11),
     ("METS SIGN SKUBAL FOR RECORD 450M",
      "The New York Mets agree a record nine-year, 450 million "
-     "dollar deal for pitcher Tarik Skubal."),
+     "dollar deal for pitcher Tarik Skubal.",
+     icon_12),
     # row 5
     ("BOLSONARO STILL IN INTENSIVE CARE",
-     "Brazil's jailed ex-president is stable in intensive care "
-     "with a bowel obstruction."),
+     "Brazil's jailed ex-president, 71, is stable in intensive "
+     "care with a bowel obstruction.",
+     icon_13),
     ("IG METALL STRIKES WIDEN",
      "Germany's biggest union calls 23,000 car and shipyard "
-     "workers out as industrial strikes spread."),
+     "workers out, seeking a 5% rise.",
+     icon_14),
     ("PROTEST AT SEATTLE AIRPORT",
-     "Crowds gather after footage shows ICE agents detaining a "
-     "father and daughter boarding a flight."),
+     "Protesters gather after ICE detain a father and daughter "
+     "boarding a flight to a baptism.",
+     icon_15),
     # row 6
     ("IOWA BLAST PUT OFF TO WEDNESDAY",
-     "A controlled detonation of unstable munitions at an Iowa "
-     "Army plant is postponed after a court order."),
+     "A controlled blast of munitions at an Iowa Army plant is "
+     "postponed after a court order.",
+     icon_16),
     ("INDIA, CHINA OPEN BORDER TALKS",
-     "Commanders meet in Arunachal Pradesh for 10 days of talks "
-     "to ease border tensions."),
+     "Commanders end 10 days of talks to ease border friction "
+     "in Arunachal before winter.",
+     icon_17),
     ("INDONESIA FIRE: 24 BODY BAGS FOUND",
-     "Rescuers recover 24 body bags from the candy factory fire "
-     "in Cikande; dozens are still missing."),
+     "Police recover 24 body bags from the candy factory fire "
+     "in Cikande; 29 are missing.",
+     icon_18),
     # row 7
     ("BITCOIN ETFS SHED 1.79BN IN A WEEK",
-     "Spot bitcoin funds record 1.79 billion dollars in weekly "
-     "outflows as sentiment turns sharply."),
+     "Bitcoin funds shed 1.79 billion dollars in a week, the "
+     "most since June; IBIT leads.",
+     icon_19),
     ("AUSTRALIA BACK IN WTC TOP TWO",
-     "Australia move up to second in the World Test "
-     "Championship after the Wellington draw."),
+     "Australia climb to second in the World Test Championship "
+     "as New Zealand slip to third.",
+     icon_20),
     ("NEPAL PM MEETS MODI IN DELHI",
-     "Nepal PM Balendra Shah holds talks with PM Modi in Delhi "
-     "on a state visit."),
+     "Nepal PM Balendra Shah meets Modi in Delhi and signs "
+     "eight deals on space and health.",
+     icon_21),
     # row 8
     ("DRONES HIT COLOMBIA POLICE BASE",
      "Explosive drones hit a police base in Cucuta, injuring "
-     "civilians and damaging 60 homes."),
+     "three people and damaging 60 homes.",
+     icon_22),
     ("EU AND INDONESIA SIGN TRADE DEAL",
-     "After a decade of talks, the EU and Indonesia sign a pact "
-     "scrapping most tariffs on goods."),
+     "After a decade of talks, the EU and Indonesia scrap "
+     "tariffs on 90% of Indonesian exports.",
+     icon_23),
     ("EURO INFLATION RISES TO 4.0%",
-     "Euro area inflation climbs to 4.0% in new Eurostat "
-     "figures, adding pressure on rates."),
+     "Euro area inflation climbs to 4.0%, the highest since "
+     "2023, as energy prices jump 20.8%.",
+     icon_24),
     # row 9
     ("DRONES HIT UN SITE IN KHARTOUM",
-     "Drone strikes hit homes and a United Nations building in "
-     "Sudan's capital."),
+     "RSF drones kill four around Khartoum and damage a UN "
+     "building with staff inside.",
+     icon_25),
     ("M6.5 QUAKE STRIKES VANUATU REGION",
-     "A deep earthquake shakes the Vanuatu region, 598 km down."),
+     "A deep quake shakes the Vanuatu region, 598 km down; no "
+     "tsunami threat, no damage.",
+     icon_26),
     ("US LEAD OVER CHINA NARROWS",
-     "America's edge over China in Asia falls to its lowest "
-     "since 2018, the Lowy Index finds."),
+     "The US lead over China narrows to 5.3 points, the "
+     "smallest gap since 2018, Lowy finds.",
+     icon_27),
 ]
 
 # Ticker briefs: six more items, three per line.
@@ -707,15 +1035,18 @@ TICKER_1 = "GOLD REBOUNDS PAST 3,600 - AVENGERS TRAILER OUT - COWBOYS SCORE 51"
 TICKER_2 = "TRUMP HEADS TO LA FOR REAGAN SPEECH - CENTRICA BOSS WARNS ON ENERGY BILLS - PANAMA MINE TALKS"
 
 
-def small_box(sh, bx, ry, headline, body):
-    """One small story in the grid: a Lemon Milk headline over
-    Creato body copy, 314 px of text width, at most 2 body lines
-    so nothing can spill into the row below."""
-    draw_lemon(sh, headline, bx + 8, ry + 3,
-               fit_size(headline, 314, 10, "bold"), "bold", INK)
+def small_box(sh, bx, ry, headline, body, icon):
+    """One small story: a 30x30 illustrated icon on the left,
+    a Lemon Milk headline over Creato body copy to its right,
+    284 px of text width, at most 2 body lines."""
+    icon(sh, bx + 4, ry + 5)
+    sh.frame(bx + 4, ry + 5, 30, 30, INK, 1)
+    tx = bx + 38
+    draw_lemon(sh, headline, tx, ry + 3,
+               fit_size(headline, 284, 10, "bold"), "bold", INK)
     y = ry + 16
-    for ln in wrap_creato(body, 314, 10)[:2]:
-        draw_creato(sh, ln, bx + 8, y, 10, "regular", INK)
+    for ln in wrap_creato(body, 284, 10)[:2]:
+        draw_creato(sh, ln, tx, y, 10, "regular", INK)
         y += 12
 
 
@@ -745,9 +1076,8 @@ def build_page(sh):
                               "AS GULF WAR WIDENS")):
         draw_lemon(sh, line, tx, 130 + i * 22,
                    fit_size(line, 498, 19, "bold"), "bold", INK)
-    para_creato(sh, LEAD_BODY, tx, 200, 498, 12, "regular", INK, 15)
-    sh.rect(tx, 264, 498, 2, RED)
-    draw_creato(sh, "2 HURT, 2 TANKERS, 1 REFINERY HIT CLAIMED", tx, 268, 12, "bold", RED)
+    para_creato(sh, LEAD_BODY, tx, 198, 498, 12, "regular", INK, 15)
+    sh.rect(tx, 277, 498, 2, RED)
 
     # ---- middle row: climate and Kyiv --------------------------
     sh.frame(10, 296, 498, 155, INK, 2)
@@ -805,9 +1135,9 @@ def build_page(sh):
         sh.rect(11, ry, 1004, 1, INK)
     for vx in (344, 682):
         sh.rect(vx, grid_y + 1, 1, grid_h - 2, INK)
-    for i, (headline, body) in enumerate(SMALL_STORIES):
+    for i, (headline, body, icon) in enumerate(SMALL_STORIES):
         row, col = divmod(i, 3)
-        small_box(sh, 10 + col * 338, rows[row], headline, body)
+        small_box(sh, 10 + col * 338, rows[row], headline, body, icon)
 
     # ---- ticker and footer -------------------------------------
     sh.frame(10, 976, 1004, 32, INK, 2)
